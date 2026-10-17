@@ -1,8 +1,10 @@
 package rs.ruffle
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -14,12 +16,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -39,12 +44,24 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
+    val context = LocalContext.current
+    val store = remember { RememberedLoginStore(context.applicationContext) }
     var username by rememberSaveable { mutableStateOf("") }
-    // Do not save passwords to instance state or preferences.
+    // Passwords stay out of instance state; persistence is opt-in and encrypted.
     var password by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
+    var rememberLogin by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(store) {
+        val saved = withContext(Dispatchers.IO) { store.load() }
+        if (saved != null) {
+            username = saved.username
+            password = saved.password
+            rememberLogin = true
+        }
+        busy = false
+    }
     val submit = {
         if (!busy && username.isNotBlank() && password.isNotEmpty()) {
             busy = true
@@ -55,7 +72,15 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                 try {
                     val auth =
                         withContext(Dispatchers.IO) { KabuLoginClient().login(account, secret) }
-                    password = ""
+                    val saved = withContext(Dispatchers.IO) {
+                        runCatching {
+                            if (rememberLogin) store.save(account, secret) else store.clear()
+                        }.isSuccess
+                    }
+                    if (!saved) {
+                        Toast.makeText(context, "登录成功，但保存账号密码失败", Toast.LENGTH_LONG).show()
+                    }
+                    if (!rememberLogin) password = ""
                     openGame(Uri.parse(KabuLoginClient.GAME_SWF), KabuLoginClient.BASE_URL, auth)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -109,6 +134,26 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                     ),
                     keyboardActions = KeyboardActions(onGo = { submit() })
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = rememberLogin,
+                        enabled = !busy,
+                        onCheckedChange = { checked ->
+                            rememberLogin = checked
+                            if (!checked) {
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { store.clear() }
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }
+                    )
+                    Text("记住账号密码（仅保存在本机）")
+                }
                 error?.let {
                     SelectionContainer { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
@@ -121,7 +166,10 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                     Text(if (busy) "正在登录…" else "登录并进入游戏")
                 }
                 if (busy) CircularProgressIndicator()
-                Text("密码仅用于本次登录，不会保存。游戏中可拖动侧边工具栏调整位置。", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "勾选后，登录成功会加密保存账号密码；取消勾选即清除。游戏中可拖动侧边工具栏调整位置。",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }

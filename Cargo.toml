@@ -37,8 +37,8 @@ wgpu = "30.0.1"
 
 # Keep all Ruffle crates on the same tested fork revision (Scale9, AVM2 event
 # propagation, and default-font glyph fallback fixes).
-ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6", features = [
+ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "deb1b730a1f69c9405ac034374bc070f4471429f" }
+ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "deb1b730a1f69c9405ac034374bc070f4471429f", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -47,9 +47,9 @@ ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "9
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
+ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "deb1b730a1f69c9405ac034374bc070f4471429f" }
+ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "deb1b730a1f69c9405ac034374bc070f4471429f" }
+ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "deb1b730a1f69c9405ac034374bc070f4471429f", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
 
 log = "0.4.32"
 
