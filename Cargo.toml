@@ -35,10 +35,10 @@ ndk = { version = "0.9.0", features = ["audio"] }
 # Have to follow Ruffle with this.
 wgpu = "30.0.1"
 
-# Keep all Ruffle crates on the same tested fork revision (Scale9, AVM2 event
-# propagation, and default-font glyph fallback fixes).
-ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "dd8acc70b75e2f04c438b619def3341ff860f622" }
-ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "dd8acc70b75e2f04c438b619def3341ff860f622", features = [
+# Keep all Ruffle crates on the Android fork merge: BGM unload cleanup,
+# background surface handling, bounded texture caches, Scale9 and font/event fixes.
+ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "a562ac6571246030627fb3eadf6a2f5c0e2986fa" }
+ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "a562ac6571246030627fb3eadf6a2f5c0e2986fa", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -47,9 +47,9 @@ ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "d
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "dd8acc70b75e2f04c438b619def3341ff860f622" }
-ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "dd8acc70b75e2f04c438b619def3341ff860f622" }
-ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "dd8acc70b75e2f04c438b619def3341ff860f622", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
+ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "a562ac6571246030627fb3eadf6a2f5c0e2986fa" }
+ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "a562ac6571246030627fb3eadf6a2f5c0e2986fa" }
+ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "a562ac6571246030627fb3eadf6a2f5c0e2986fa", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
 
 log = "0.4.32"
 
