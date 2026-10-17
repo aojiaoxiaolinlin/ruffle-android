@@ -122,6 +122,7 @@ class KabuLoginClientTest {
     }
 
     private data class Request(val path: String, val headers: Map<String, String>, val body: String)
+    private data class Reply(val status: Int, val body: String, val headers: String = "")
 
     private class FakeLoginServer(private val loginStatus: Int = 200) : AutoCloseable {
         private val socket = ServerSocket(0, 10, InetAddress.getByName("127.0.0.1"))
@@ -151,32 +152,26 @@ class KabuLoginClientTest {
                             offset += count
                         }
                         requests.add(Request(path, headers, String(chars)))
-                        val status: Int
-                        val responseBody: String
-                        val extraHeaders: String
-                        when {
-                            path.startsWith("/ptlogin/loginFrame.do") -> {
-                                status = 200
-                                responseBody = "<form id=\"login_form\"></form>"
-                                extraHeaders = "Set-Cookie: sid=mock; Path=/ptlogin\r\n"
-                            }
-                            path.startsWith("/ptlogin/login.do") -> {
-                                status = loginStatus
-                                responseBody = "test response"
-                                extraHeaders = ""
-                            }
-                            path.startsWith("/ptlogin/checkKidLoginUserCookie.do") -> {
-                                status = 302
-                                responseBody = ""
-                                extraHeaders =
-                                    "Location: ${KabuLoginClient.BASE_URL}KBgameindex.html?" +
+                        val reply = when {
+                            path.startsWith("/ptlogin/loginFrame.do") -> Reply(
+                                200,
+                                "<form id=\"login_form\"></form>",
+                                "Set-Cookie: sid=mock; Path=/ptlogin\r\n"
+                            )
+                            path.startsWith(
+                                "/ptlogin/login.do"
+                            ) -> Reply(loginStatus, "test response")
+                            path.startsWith("/ptlogin/checkKidLoginUserCookie.do") -> Reply(
+                                302,
+                                "",
+                                "Location: ${KabuLoginClient.BASE_URL}KBgameindex.html?" +
                                     "user=test&sig=mock%2Bsignature%3D\r\n"
-                            }
+                            )
                             else -> error("Unexpected request path")
                         }
-                        val response = "HTTP/1.1 $status Test\r\n$extraHeaders" +
-                            "Content-Length: ${responseBody.toByteArray().size}\r\n" +
-                            "Connection: close\r\n\r\n$responseBody"
+                        val response = "HTTP/1.1 ${reply.status} Test\r\n${reply.headers}" +
+                            "Content-Length: ${reply.body.toByteArray().size}\r\n" +
+                            "Connection: close\r\n\r\n${reply.body}"
                         client.getOutputStream().write(response.toByteArray())
                     }
                 }
