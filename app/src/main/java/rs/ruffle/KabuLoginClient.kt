@@ -17,7 +17,7 @@ class KabuLoginException(message: String) : IOException(message)
 
 /** The same 4399 login protocol as kabu-login, without credential/key files. */
 class KabuLoginClient internal constructor(private val hosts: List<String> = HOSTS) {
-    private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
+    private val cookies = createCookieManager()
 
     fun login(username: String, password: String): String {
         require(username.isNotBlank() && password.isNotEmpty()) { "请输入账号和密码" }
@@ -173,6 +173,19 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
         private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+        internal fun createCookieManager(): CookieManager = CookieManager(
+            null,
+            CookiePolicy { uri, cookie ->
+                // 4399 uses Domain=4399.com. Java's legacy policy rejects this
+                // for ptlogin.4399.com unless the domain has a leading dot.
+                val host = uri.host.orEmpty().lowercase()
+                val domain = cookie.domain.orEmpty().trimStart('.').lowercase()
+                val accepted = domain.isNotEmpty() && (host == domain || host.endsWith(".$domain"))
+                if (accepted && host != domain) cookie.domain = ".$domain"
+                accepted
+            }
+        )
 
         // CryptoJS passphrase mode: EVP_BytesToKey(MD5), AES-256-CBC, Salted__.
         internal fun encryptPassword(

@@ -3,6 +3,7 @@ package rs.ruffle
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.SocketException
+import java.net.URI
 import java.net.URLDecoder
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
@@ -13,6 +14,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KabuLoginClientTest {
+    @Test
+    fun accepts4399ParentDomainCookieAndRejectsUnrelatedDomains() {
+        val cookies = KabuLoginClient.createCookieManager()
+        val uri = URI("http://ptlogin.4399.com/ptlogin/loginFrame.do")
+        cookies.put(
+            uri,
+            mapOf(
+                "Set-Cookie" to listOf(
+                    "session=mock; Path=/; Domain=4399.com",
+                    "unrelated=mock; Path=/; Domain=example.com"
+                )
+            )
+        )
+        val header = cookies.get(uri, emptyMap()).values.flatten().joinToString("; ")
+        assertTrue(header.contains("session=mock"))
+        assertFalse(header.contains("unrelated="))
+        val unrelated = cookies.get(URI("http://example.com/"), emptyMap()).values.flatten()
+        assertFalse(unrelated.any { it.contains("session=mock") })
+    }
+
     @Test
     fun encryptionMatchesIndependentOpenSslVector() {
         assertEquals(
