@@ -1,9 +1,11 @@
 mod audio;
 mod custom_event;
+mod fonts;
 mod java;
 mod keycodes;
 mod navigator;
 mod trace;
+mod ui;
 
 use custom_event::RuffleEvent;
 
@@ -343,6 +345,7 @@ async fn run(app: AndroidApp) {
                                             .with_audio(AAudioAudioBackend::new().unwrap())
                                             .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
                                             .with_navigator(navigator)
+                                            .with_ui(ui::AndroidUiBackend::new())
                                             .with_log(FileLogBackend::new(trace_output.as_deref()))
                                             .with_video(
                                                 ruffle_video_software::backend::SoftwareVideoBackend::new(),
@@ -353,6 +356,13 @@ async fn run(app: AndroidApp) {
 
                                 let player = &playerbox.as_ref().unwrap().player;
                                 let mut player_lock = player.lock().unwrap();
+                                for (font, families) in [
+                                    (ruffle_core::font::DefaultFont::Sans, vec!["Roboto", "Noto Sans", "Noto Sans CJK SC"]),
+                                    (ruffle_core::font::DefaultFont::Serif, vec!["Noto Serif", "Noto Serif CJK SC", "Noto Sans CJK SC"]),
+                                    (ruffle_core::font::DefaultFont::Typewriter, vec!["Droid Sans Mono", "Noto Sans Mono", "Noto Sans CJK SC"]),
+                                ] {
+                                    player_lock.set_default_font(font, families.into_iter().map(str::to_owned).collect());
+                                }
                                 if let Some(bytes) = bytes {
                                     let movie = SwfMovieData::from_data(&bytes, url, None, None).unwrap();
                                     player_lock.mutate_with_update_context(|context| {

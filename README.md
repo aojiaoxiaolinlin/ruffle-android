@@ -37,6 +37,19 @@ Use a server address reachable from the Android device. `localhost` and `127.0.0
 for a server running on your computer, use the computer's LAN IP address (or `10.0.2.2` in the standard Android emulator).
 HTTP requests are supported without automatically upgrading them to HTTPS.
 
+## Development core and Chinese fonts
+
+This development branch pins all Ruffle crates to commit `96672e20dc02566a6befd17a3a9cd18d9c773de6`
+of `aojiaoxiaolinlin/ruffle`. It includes the shared Scale9 rendering, AVM2 broadcast-event propagation,
+and default-font glyph fallback fixes used by our desktop build. Update all Ruffle revisions together
+and regenerate `Cargo.lock` when changing the core.
+
+The Android player loads device fonts from Android's system, product, vendor, and updated-font directories.
+Missing Windows font families use Android alternatives, and Chinese glyphs can fall back to Noto CJK
+or Droid Sans Fallback, with simplified Chinese preferred. Font collections retain their face indices
+and share file data between faces. No extra font download or storage permission is needed.
+Available glyphs still depend on the fonts installed by the device manufacturer.
+
 ## Building APKs with GitHub Actions
 
 The repository includes a **Build** workflow in `.github/workflows/build.yml`.

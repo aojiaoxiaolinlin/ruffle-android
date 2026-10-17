@@ -63,7 +63,7 @@ jobs:
       - name: Build native libs
         run: |
           unset ANDROID_SDK_ROOT # Deprecated, will cause an error if left set.
-          cargo ndk --target ${{ matrix.android-abi }} --platform 26 -o jniLibs build --release --features jpegxr
+          cargo ndk --target ${{ matrix.android-abi }} --platform 26 -o jniLibs build --locked --release --features jpegxr
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
