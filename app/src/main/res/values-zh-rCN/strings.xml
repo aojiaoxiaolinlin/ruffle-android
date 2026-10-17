@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">Ruffle</string>
+    <string name="toggle_keyboard">显示或隐藏键盘</string>
+    <string name="player_menu">播放器菜单</string>
+    <string name="reload_movie">重新加载</string>
+    <string name="exit_player">退出</string>
     <string name="logo_description">Ruffle Logo</string>
     <string name="or">或者</string>
     <string name="open_url">打开链接</string>

@@ -20,7 +20,7 @@
         android:id="@+id/keyboard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="64dp"
+        android:visibility="gone"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -405,24 +405,38 @@
 
     <LinearLayout
         android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="64dp"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_width="48dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:alpha="0.75"
+        android:background="@drawable/floating_toolbar"
+        android:elevation="8dp"
+        android:orientation="vertical"
+        app:layout_constraintTop_toTopOf="@id/placeholder"
+        app:layout_constraintBottom_toBottomOf="@id/placeholder"
         app:layout_constraintStart_toStartOf="parent">
 
         <Button
             android:id="@+id/button_kb"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/toggle_keyboard"
+            android:textColor="#FFFFFF"
             android:tag="kb"
             android:text="⌨" />
 
         <Button
             android:id="@+id/button_cm"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/player_menu"
+            android:textColor="#FFFFFF"
             android:checkable="true"
             android:tag="cm"
             android:text="▤" />

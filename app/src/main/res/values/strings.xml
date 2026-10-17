@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">Ruffle</string>
+    <string name="toggle_keyboard">Show or hide keyboard</string>
+    <string name="player_menu">Player menu</string>
+    <string name="reload_movie">Reload</string>
+    <string name="exit_player">Exit</string>
     <string name="logo_description">Ruffle Logo</string>
     <string name="or">or</string>
     <string name="open_url">Open URL</string>

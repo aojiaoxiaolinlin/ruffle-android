@@ -13,6 +13,7 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewConfiguration
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
@@ -26,8 +27,11 @@ import com.google.androidgamesdk.GameActivity
 import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
+import kotlin.math.abs
 
 class PlayerActivity : GameActivity() {
+    private var toolbarOnRight = false
+    private var toolbarPosition = 0.5f
     @Suppress("unused")
     // Used by Rust
     private val swfBytes: ByteArray?
@@ -129,13 +133,19 @@ class PlayerActivity : GameActivity() {
                     item.setChecked(true)
                 }
             }
-            val exitItemId: Int = items.size
-            menu.add(group, exitItemId, Menu.NONE, "Exit")
+            val reloadItemId = items.size
+            val exitItemId = items.size + 1
+            menu.add(group + 1, reloadItemId, Menu.NONE, R.string.reload_movie)
+            menu.add(group + 1, exitItemId, Menu.NONE, R.string.exit_player)
             popup.setOnMenuItemClickListener { item: MenuItem ->
-                if (item.itemId == exitItemId) {
-                    finish()
-                } else {
-                    runContextMenuCallback(item.itemId)
+                when (item.itemId) {
+                    reloadItemId -> {
+                        popup.dismiss()
+                        // Retain the source URI, grants and launch options in the Intent.
+                        recreate()
+                    }
+                    exitItemId -> finish()
+                    else -> runContextMenuCallback(item.itemId)
                 }
                 true
             }
@@ -196,9 +206,11 @@ class PlayerActivity : GameActivity() {
             } else {
                 keyboard.visibility = View.VISIBLE
             }
+            layout.post { positionToolbar() }
         }
         layout.findViewById<View>(R.id.button_cm)
             .setOnClickListener { requestContextMenu() }
+        installFloatingToolbar(layout)
         layout.requestLayout()
         layout.requestFocus()
         mSurfaceView.holder.addCallback(this)
@@ -210,6 +222,82 @@ class PlayerActivity : GameActivity() {
         val keyboard = findViewById<View>(R.id.keyboard)
         val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         keyboard.visibility = if (isLandscape) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.toolbar).post { positionToolbar() }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun installFloatingToolbar(layout: ViewGroup) {
+        val toolbar = layout.findViewById<View>(R.id.toolbar)
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        var startX = 0f
+        var startY = 0f
+        var toolbarX = 0f
+        var toolbarY = 0f
+        var dragging = false
+        val listener = View.OnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.rawX
+                    startY = event.rawY
+                    toolbarX = toolbar.x
+                    toolbarY = toolbar.y
+                    dragging = false
+                    view.isPressed = true
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (abs(event.rawX - startX) > slop || abs(event.rawY - startY) > slop) {
+                        dragging = true
+                        view.isPressed = false
+                    }
+                    if (dragging) {
+                        toolbar.x = toolbarX + event.rawX - startX
+                        toolbar.y = toolbarY + event.rawY - startY
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.isPressed = false
+                    if (dragging) {
+                        toolbarOnRight = toolbar.x + toolbar.width / 2f > layout.width / 2f
+                        toolbarPosition = (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        positionToolbar()
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        view.performClick()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        toolbar.setOnTouchListener(listener)
+        layout.findViewById<View>(R.id.button_kb).setOnTouchListener(listener)
+        layout.findViewById<View>(R.id.button_cm).setOnTouchListener(listener)
+        layout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> positionToolbar() }
+        toolbar.post { positionToolbar() }
+    }
+
+    private fun positionToolbar() {
+        val toolbar = findViewById<View>(R.id.toolbar)
+        val parent = toolbar.parent as View
+        if (parent.width == 0 || toolbar.height == 0) return
+        val insets = ViewCompat.getRootWindowInsets(parent)?.getInsets(
+            WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+        )
+        val margin = 8 * resources.displayMetrics.density
+        val left = (insets?.left ?: 0) + margin
+        val right = (parent.width - (insets?.right ?: 0) - toolbar.width - margin).coerceAtLeast(left)
+        val top = (insets?.top ?: 0) + margin
+        val keyboard = findViewById<View>(R.id.keyboard)
+        val bottom = if (keyboard.visibility == View.VISIBLE) keyboard.top else parent.height - (insets?.bottom ?: 0)
+        toolbar.x = if (toolbarOnRight) right else left
+        toolbar.y = (toolbarPosition * parent.height).coerceIn(top, (bottom - toolbar.height - margin).coerceAtLeast(top))
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putBoolean("toolbarOnRight", toolbarOnRight)
+        outState.putFloat("toolbarPosition", toolbarPosition)
+        super.onSaveInstanceState(outState)
     }
 
     private fun hideSystemUI() {
@@ -233,6 +321,8 @@ class PlayerActivity : GameActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        toolbarOnRight = savedInstanceState?.getBoolean("toolbarOnRight") ?: false
+        toolbarPosition = savedInstanceState?.getFloat("toolbarPosition", 0.5f) ?: 0.5f
         nativeInit { message ->
             Log.e("ruffle", "Handling panic: $message")
             startActivity(
