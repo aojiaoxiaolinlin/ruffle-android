@@ -1,17 +1,22 @@
 package rs.ruffle
 
 import java.io.IOException
+import java.net.ConnectException
 import java.net.CookieManager
 import java.net.CookiePolicy
 import java.net.HttpURLConnection
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URI
 import java.net.URLEncoder
+import java.net.UnknownHostException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import javax.net.ssl.SSLException
 
 class KabuLoginException(message: String) : IOException(message)
 
@@ -21,17 +26,26 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
 
     fun login(username: String, password: String): String {
         require(username.isNotBlank() && password.isNotEmpty()) { "请输入账号和密码" }
+        val failures = mutableListOf<String>()
         val host = hosts.firstOrNull { host ->
             try {
                 val response =
                     request(
                         "http://$host/ptlogin/loginFrame.do?displayMode=popup&bizId=$BIZ_ID&appId=$APP_ID"
                     )
-                response.status == 200 && response.body.contains("login_form")
-            } catch (_: IOException) {
+                val problem = loginPageProblem(response.status, response.body)
+                if (problem != null) failures.add("$host：$problem")
+                problem == null
+            } catch (failure: IOException) {
+                failures.add("$host：${connectionProblem(failure)}")
+                false
+            } catch (failure: SecurityException) {
+                failures.add("$host：${connectionProblem(failure)}")
                 false
             }
-        } ?: throw KabuLoginException("无法连接4399登录服务器，请检查网络后重试")
+        } ?: throw KabuLoginException(
+            "获取4399登录页面失败（尚未提交账号密码）：\n" + failures.joinToString("\n")
+        )
 
         val frameUrl = "http://$host/ptlogin/loginFrame.do?postLoginHandler=default" +
             "&displayMode=popup&bizId=$BIZ_ID&appId=$APP_ID"
@@ -173,6 +187,32 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
         private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+        internal fun loginPageProblem(status: Int, body: String): String? = when {
+            status != 200 -> "服务器返回 HTTP $status"
+            !body.contains("login_form") -> "HTTP 200，但内容不是预期的登录表单"
+            else -> null
+        }
+
+        internal fun connectionProblem(failure: Throwable): String {
+            val causes = generateSequence(failure) { it.cause }.take(8).toList()
+            // Only return categories, never raw exceptions that may contain a URL or token.
+            return when {
+                causes.any { it.message.orEmpty().contains("cleartext", ignoreCase = true) } ->
+                    "Android阻止了HTTP明文连接"
+                causes.any {
+                    it is SecurityException ||
+                        it.message.orEmpty().contains("permission denied", ignoreCase = true) ||
+                        it.message.orEmpty().contains("EACCES", ignoreCase = true)
+                } -> "联网请求被系统拒绝，请检查应用联网权限"
+                causes.any { it is UnknownHostException } -> "DNS解析失败"
+                causes.any { it is SocketTimeoutException } -> "连接或读取超时"
+                causes.any { it is ConnectException } -> "无法建立服务器连接"
+                causes.any { it is SSLException } -> "HTTPS连接失败"
+                causes.any { it is SocketException } -> "网络连接被中断"
+                else -> "网络读写失败（${failure.javaClass.simpleName}）"
+            }
+        }
 
         internal fun createCookieManager(): CookieManager = CookieManager(
             null,

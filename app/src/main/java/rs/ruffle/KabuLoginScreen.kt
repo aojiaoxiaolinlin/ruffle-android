@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -108,7 +109,9 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                     ),
                     keyboardActions = KeyboardActions(onGo = { submit() })
                 )
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                error?.let {
+                    SelectionContainer { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
                 Button(
                     onClick = { submit() },
                     enabled =
