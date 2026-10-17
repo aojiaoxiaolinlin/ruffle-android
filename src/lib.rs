@@ -134,6 +134,7 @@ async fn run(app: AndroidApp) {
     let mut last_frame_time = Instant::now();
     let mut next_frame_time = Some(Instant::now());
     let mut quit = false;
+    let mut is_resumed = false;
     let (sender, receiver) = mpsc::channel::<RuffleEvent>();
     let mut native_window: Option<ndk::native_window::NativeWindow> = None;
     let mut playerbox: Option<ActivePlayer> = None;
@@ -183,9 +184,12 @@ async fn run(app: AndroidApp) {
                         MainEvent::WindowResized { .. } => {
                             if let Some(player) = playerbox.as_ref() {
                                 let mut player_lock = player.player.lock().unwrap();
-                                let window = native_window
-                                    .as_ref()
-                                    .expect("native_window should be Some for a WindowResized");
+                                let Some(window) = native_window.as_ref() else {
+                                    return;
+                                };
+                                if window.width() <= 0 || window.height() <= 0 {
+                                    return;
+                                }
                                 log::info!(
                                     "WindowResized: {} x {}",
                                     window.width(),
@@ -206,38 +210,19 @@ async fn run(app: AndroidApp) {
                             }
                         }
                         MainEvent::Resume { .. } => {
+                            is_resumed = true;
                             if let Some(player) = playerbox.as_ref() {
-                                if let Some(window) = native_window.as_ref() {
-                                    // [NA] For some reason we can get negative sizes during a resume...
-                                    if window.width() > 0 && window.height() > 0 {
-                                        unsafe {
-                                            let mut player = player
-                                                .player
-                                                .lock()
-                                                .unwrap();
-
-                                            let renderer = <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
-                                                player.renderer_mut(),
-                                            )
-                                            .unwrap();
-
-                                            renderer.recreate_surface_unsafe(
-                                                wgpu::SurfaceTargetUnsafe::RawHandle {
-                                                    raw_display_handle:
-                                                        Some(RawDisplayHandle::Android(
-                                                            AndroidDisplayHandle::new(),
-                                                        )),
-                                                    raw_window_handle: window
-                                                        .window_handle()
-                                                        .unwrap()
-                                                        .into(),
-                                                },
-                                                (window.width() as u32, window.height() as u32),
-                                            )
-                                            .unwrap();
-                                        }
-                                    }
-                                }
+                                let mut player = player.player.lock().unwrap();
+                                <dyn Any>::downcast_mut::<AAudioAudioBackend>(player.audio_mut())
+                                    .unwrap().set_backgrounded(false);
+                            }
+                        }
+                        MainEvent::Pause => {
+                            is_resumed = false;
+                            if let Some(player) = playerbox.as_ref() {
+                                let mut player = player.player.lock().unwrap();
+                                <dyn Any>::downcast_mut::<AAudioAudioBackend>(player.audio_mut())
+                                    .unwrap().set_backgrounded(true);
                             }
                         }
                         MainEvent::InitWindow { .. } => {
@@ -284,7 +269,6 @@ async fn run(app: AndroidApp) {
                                     )
                                     .unwrap();
                                 }
-                                player_lock.set_is_playing(true);
                             } else {
                                 let renderer = unsafe {
                                     // TODO: make this take an Arc<Window> instead?
@@ -389,22 +373,33 @@ async fn run(app: AndroidApp) {
                                 log::info!("MOVIE STARTED");
                             }
                         }
-                        MainEvent::TerminateWindow { .. }  => {
-                            let player = &playerbox.as_ref().unwrap().player;
-                            let mut player_lock = player.lock().unwrap();
-                            player_lock.set_is_playing(false);
+                        MainEvent::TerminateWindow { .. } => {
+                            if let Some(player) = playerbox.as_ref() {
+                                let mut player = player.player.lock().unwrap();
+                                let renderer = <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
+                                    player.renderer_mut(),
+                                ).unwrap();
+                                renderer.suspend_surface();
+                            }
+                            native_window = None;
+                            // Keep ticking: SWF timers and socket responses drive game heartbeats.
                         }
                         MainEvent::InputAvailable => {
                             if let Ok(mut inputs) = app.input_events_iter() {
                                 while inputs.next(|input| match input {
                                     InputEvent::MotionEvent(event) => {
-                                        let window = native_window.as_ref().unwrap();
+                                        let Some(window) = native_window.as_ref() else {
+                                            return InputStatus::Unhandled;
+                                        };
                                         let pointer = event.pointer_index();
                                         let pointer = event.pointer_at_index(pointer);
                                         let coords: (i32, i32) = get_loc_in_window(&app);
                                         let mut x = pointer.x() as f64 - coords.0 as f64;
                                         let mut y = pointer.y() as f64 - coords.1 as f64;
                                         let view_size = get_view_size(&app).unwrap();
+                                        if view_size.0 <= 0 || view_size.1 <= 0 {
+                                            return InputStatus::Unhandled;
+                                        }
                                         x = x * window.width() as f64 / view_size.0 as f64;
                                         y = y * window.height() as f64 / view_size.1 as f64;
                                         let ruffle_event = match event.action() {
@@ -491,6 +486,10 @@ async fn run(app: AndroidApp) {
             },
         );
 
+        if quit {
+            break;
+        }
+
         match receiver.try_recv() {
             Err(_) => {}
             Ok(RuffleEvent::TaskPoll(task)) => {
@@ -572,7 +571,7 @@ async fn run(app: AndroidApp) {
             }
         }
 
-        if needs_redraw {
+        if needs_redraw && is_resumed && native_window.is_some() {
             if let Some(player) = playerbox.as_ref() {
                 if let Ok(mut player) = player.player.lock() {
                     player.render();

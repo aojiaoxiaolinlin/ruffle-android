@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:allowBackup="true"
@@ -17,6 +19,15 @@
         android:theme="@style/Theme.Ruffle"
         tools:replace="android:networkSecurityConfig"
         tools:targetApi="31">
+        <service
+            android:name=".GameConnectionService"
+            android:exported="false"
+            android:stopWithTask="true"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Maintain the active multiplayer SWF game session and its network heartbeats while the player switches apps." />
+        </service>
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTask"

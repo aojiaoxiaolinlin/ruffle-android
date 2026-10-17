@@ -30,6 +30,7 @@ import java.io.IOException
 import kotlin.math.abs
 
 class PlayerActivity : GameActivity() {
+    @Volatile private var playerCrashed = false
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
 
@@ -319,6 +320,34 @@ class PlayerActivity : GameActivity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onPause() {
+        // Start during the transition from a visible Activity, before background
+        // execution restrictions can freeze the native game/heartbeat loop.
+        if (!isFinishing && !isChangingConfigurations && !playerCrashed) {
+            try {
+                startForegroundService(
+                    Intent(this, GameConnectionService::class.java)
+                        .putExtra("playerIntent", Intent(intent))
+                )
+            } catch (failure: IllegalStateException) {
+                Log.w("ruffle", "Background connection service unavailable", failure)
+            } catch (failure: SecurityException) {
+                Log.w("ruffle", "Background connection service denied", failure)
+            }
+        }
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        stopService(Intent(this, GameConnectionService::class.java))
+    }
+
+    override fun onDestroy() {
+        stopService(Intent(this, GameConnectionService::class.java))
+        super.onDestroy()
+    }
+
     private fun hideSystemUI() {
         // This will put the game behind any cutouts and waterfalls on devices which have
         // them, so the corresponding insets will be non-zero.
@@ -343,6 +372,8 @@ class PlayerActivity : GameActivity() {
         toolbarOnRight = savedInstanceState?.getBoolean("toolbarOnRight") ?: false
         toolbarPosition = savedInstanceState?.getFloat("toolbarPosition", 0.5f) ?: 0.5f
         nativeInit { message ->
+            playerCrashed = true
+            stopService(Intent(this, GameConnectionService::class.java))
             Log.e("ruffle", "Handling panic: $message")
             startActivity(
                 Intent(this, PanicActivity::class.java).apply {
