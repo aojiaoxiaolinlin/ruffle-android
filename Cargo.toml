@@ -27,8 +27,8 @@ jni = "0.22.4"
 # which on Android needs to be initialized, and its Kotlin component included.
 # Keep it semver-compatible with the version reqwest uses, so they share a copy.
 rustls-platform-verifier = "0.7.1"
-# ruffle_frontend_utils' `rustls-tls` doesn't include a crypto provider for reqwest,
-# so we have to install one. Using `ring`, because `aws-lc-rs` needs CMake to build.
+# Select `ring` explicitly at startup, so TLS works consistently even when
+# transitive features also enable another rustls crypto provider.
 rustls = { version = "0.23.45", default-features = false, features = ["ring", "std"] }
 ndk = { version = "0.9.0", features = ["audio"] }
 

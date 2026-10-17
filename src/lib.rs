@@ -42,7 +42,7 @@ use ruffle_common::duration::FloatDuration;
 use ruffle_core::{
     backend::navigator::OwnedFuture,
     events::{LogicalKey, MouseButton, PlayerEvent},
-    tag_utils::SwfMovieData,
+    tag_utils::SwfMovie,
     Player, PlayerBuilder, ViewportDimensions,
 };
 use ruffle_frontend_utils::backends::storage::DiskStorageBackend;
@@ -364,7 +364,7 @@ async fn run(app: AndroidApp) {
                                     player_lock.set_default_font(font, families.into_iter().map(str::to_owned).collect());
                                 }
                                 if let Some(bytes) = bytes {
-                                    let movie = SwfMovieData::from_data(&bytes, url, None, None).unwrap();
+                                    let movie = SwfMovie::from_data(&bytes, url, None, None).unwrap();
                                     player_lock.mutate_with_update_context(|context| {
                                         context.set_root_movie(movie);
                                     });
