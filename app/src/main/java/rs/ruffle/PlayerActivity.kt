@@ -226,6 +226,7 @@ class PlayerActivity : GameActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        hideSystemUI()
         val keyboard = findViewById<View>(R.id.keyboard)
         val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         keyboard.visibility = if (isLandscape) View.GONE else View.VISIBLE
@@ -341,6 +342,16 @@ class PlayerActivity : GameActivity() {
     override fun onResume() {
         super.onResume()
         stopService(Intent(this, GameConnectionService::class.java))
+        hideSystemUI()
+        // The system may restore bars during the app-switch animation after onResume.
+        window.decorView.post {
+            if (hasWindowFocus()) hideSystemUI()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemUI()
     }
 
     override fun onDestroy() {

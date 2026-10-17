@@ -48,7 +48,8 @@
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
 
-            android:screenOrientation="user"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.Ruffle.Player"
             >
             <meta-data android:name="android.app.lib_name" android:value="ruffle_android" />
 

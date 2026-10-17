@@ -2,9 +2,14 @@ package rs.ruffle
 
 import android.app.ActivityManager
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.SystemClock
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -32,6 +37,7 @@ class BackgroundPlaybackTest {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         context.startActivity(launch)
         waitFor { heartbeatCount(trace) >= 3 }
+        waitFor { gameIsImmersiveLandscape() }
         repeat(3) {
             device.pressHome()
             assertTrue(device.wait(Until.hasObject(By.pkg(device.launcherPackageName)), 5000))
@@ -48,6 +54,7 @@ class BackgroundPlaybackTest {
             )
             assertTrue(device.wait(Until.hasObject(By.desc("Ruffle Player")), 5000))
             waitFor { !connectionServiceIsForeground() }
+            waitFor { gameIsImmersiveLandscape() }
             waitFor { heartbeatCount(trace) >= count + 10 }
         }
         device.pressBack()
@@ -56,6 +63,24 @@ class BackgroundPlaybackTest {
 
     private fun heartbeatCount(trace: File) = trace.readLines().count {
         it == "background-heartbeat"
+    }
+
+    private fun gameIsImmersiveLandscape(): Boolean {
+        var ready = false
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val player = ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(
+                    Stage.RESUMED
+                ).filterIsInstance<PlayerActivity>().firstOrNull()
+            if (player != null) {
+                val insets = ViewCompat.getRootWindowInsets(player.window.decorView)
+                ready = player.resources.configuration.orientation ==
+                    Configuration.ORIENTATION_LANDSCAPE && insets != null &&
+                    !insets.isVisible(WindowInsetsCompat.Type.statusBars()) &&
+                    !insets.isVisible(WindowInsetsCompat.Type.navigationBars())
+            }
+        }
+        return ready
     }
 
     @Suppress("DEPRECATION")
