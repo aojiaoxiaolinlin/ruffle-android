@@ -403,6 +403,7 @@ class PlayerActivity : GameActivity() {
         requestNoStatusBarFeature()
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     // Used by Rust

@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -109,8 +110,11 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                 modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("卡布西游", style = MaterialTheme.typography.headlineLarge)
-                Text("登录4399账号，直接进入游戏", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineLarge
+                )
+                Text("登录4399账号，进入卡布西游", style = MaterialTheme.typography.bodyLarge)
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
@@ -168,6 +172,10 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                 if (busy) CircularProgressIndicator()
                 Text(
                     "勾选后，登录成功会加密保存账号密码；取消勾选即清除。游戏中可拖动侧边工具栏调整位置。",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    stringResource(R.string.client_copyright),
                     style = MaterialTheme.typography.bodySmall
                 )
             }

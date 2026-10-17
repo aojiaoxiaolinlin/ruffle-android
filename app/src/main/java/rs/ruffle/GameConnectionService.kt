@@ -36,7 +36,7 @@ class GameConnectionService : Service() {
         )
         val notification = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("卡布：正在保持游戏连接")
+            .setContentTitle("${getString(R.string.app_name)}：正在保持游戏连接")
             .setContentText("点击返回游戏；退出游戏后自动停止")
             .setContentIntent(returnToGame)
             .setOngoing(true)
