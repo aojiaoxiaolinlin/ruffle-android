@@ -59,6 +59,11 @@ class PlayerActivity : GameActivity() {
 
     @Suppress("unused")
     // Used by Rust
+    private val baseUrl: String?
+        get() = intent.getStringExtra("baseUrl")
+
+    @Suppress("unused")
+    // Used by Rust
     private val traceOutput: String?
         get() {
             return intent.getStringExtra("traceOutput")

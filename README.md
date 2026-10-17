@@ -26,6 +26,30 @@ You can try this app by downloading and installing one of those.
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md#building-from-source) for details about how to build this repository yourself.
 
+## Loading resources from an HTTP server
+
+On the opening screen, set **Custom base URL (optional)** before selecting a local SWF or opening a SWF URL.
+For example, with `http://192.168.1.100:8000/game/` as the base URL, a SWF request for `images/title.png`
+loads `http://192.168.1.100:8000/game/images/title.png`. End directory URLs with `/`.
+Leave the field empty to use the SWF location. This setting resolves relative URLs; absolute URLs inside the SWF are unchanged.
+
+Use a server address reachable from the Android device. `localhost` and `127.0.0.1` refer to the Android device itself;
+for a server running on your computer, use the computer's LAN IP address (or `10.0.2.2` in the standard Android emulator).
+HTTP requests are supported without automatically upgrading them to HTTPS.
+
+## Building APKs with GitHub Actions
+
+The repository includes a **Build** workflow in `.github/workflows/build.yml`.
+After pushing your changes to your fork, enable Actions if necessary, select **Actions → Build → Run workflow**,
+and choose the branch containing your changes. Pushes to `main` and pull requests targeting `main` also trigger the workflow.
+
+Once the `build-apks` job succeeds, download the **ruffle-release-apks** artifact from the workflow run.
+It contains APKs for all four supported ABIs and a universal APK. Most current Android devices use `arm64-v8a`.
+No signing secrets are required for a personal build: the workflow generates a temporary signing key when `KEYSTORE` is absent.
+That key changes between runs, so installing a later build may require uninstalling the previous one, which removes app data.
+For consistent signing, configure `KEYSTORE` (base64-encoded keystore), `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`,
+and `SIGNING_STORE_PASSWORD` as repository secrets.
+
 ---
 
 # TODO

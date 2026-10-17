@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -28,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -53,19 +56,20 @@ fun BrandBar() {
 }
 
 @Composable
-fun SelectSwfRoute(openSwf: (uri: Uri) -> Unit) {
+fun SelectSwfRoute(openSwf: (uri: Uri, baseUrl: String?) -> Unit) {
     SelectSwfScreen(
         openSwf = openSwf
     )
 }
 
 @Composable
-fun SelectSwfScreen(openSwf: (uri: Uri) -> Unit) {
+fun SelectSwfScreen(openSwf: (uri: Uri, baseUrl: String?) -> Unit) {
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center
         ) {
             Column(
@@ -89,9 +93,19 @@ fun SelectSwfScreen(openSwf: (uri: Uri) -> Unit) {
 }
 
 @Composable
-private fun SelectSwfUrlOrFile(openSwf: (uri: Uri) -> Unit) {
+private fun SelectSwfUrlOrFile(openSwf: (uri: Uri, baseUrl: String?) -> Unit) {
     val urlState by rememberSaveable(stateSaver = UrlStateSaver) {
         mutableStateOf(UrlState())
+    }
+    var baseUrl by rememberSaveable { mutableStateOf("") }
+    var showBaseUrlError by rememberSaveable { mutableStateOf(false) }
+    val baseUrlValid = isBaseUrlValid(baseUrl)
+    val openWithBaseUrl: (Uri) -> Unit = { uri ->
+        if (baseUrlValid) {
+            openSwf(uri, baseUrl.trim().ifEmpty { null })
+        } else {
+            showBaseUrlError = true
+        }
     }
     Column(
         modifier = Modifier
@@ -99,7 +113,7 @@ private fun SelectSwfUrlOrFile(openSwf: (uri: Uri) -> Unit) {
     ) {
         val submitUrl = {
             if (urlState.isValid) {
-                openSwf(Uri.parse(urlState.text))
+                openWithBaseUrl(Uri.parse(urlState.text))
             } else {
                 urlState.enableShowErrors()
             }
@@ -136,6 +150,31 @@ private fun SelectSwfUrlOrFile(openSwf: (uri: Uri) -> Unit) {
         )
         urlState.getError()?.let { error -> TextFieldError(textError = error) }
 
+        OutlinedTextField(
+            value = baseUrl,
+            onValueChange = {
+                baseUrl = it
+                showBaseUrlError = true
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            label = { Text(stringResource(R.string.custom_base_url)) },
+            placeholder = { Text("http://192.168.1.100:8000/game/") },
+            supportingText = {
+                Text(
+                    stringResource(
+                        if (showBaseUrlError && !baseUrlValid) {
+                            R.string.invalid_base_url
+                        } else {
+                            R.string.custom_base_url_hint
+                        }
+                    )
+                )
+            },
+            isError = showBaseUrlError && !baseUrlValid,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true
+        )
+
         Button(
             onClick = submitUrl,
             modifier = Modifier
@@ -165,13 +204,13 @@ private fun SelectSwfUrlOrFile(openSwf: (uri: Uri) -> Unit) {
                 ),
                 modifier = Modifier.paddingFromBaseline(top = 25.dp)
             )
-            PickSwfButton(openSwf)
+            PickSwfButton(openWithBaseUrl, enabled = baseUrlValid)
         }
     }
 }
 
 @Composable
-fun PickSwfButton(onSelect: (uri: Uri) -> Unit) {
+fun PickSwfButton(onSelect: (uri: Uri) -> Unit, enabled: Boolean = true) {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
         if (it != null) {
             onSelect(it)
@@ -179,6 +218,7 @@ fun PickSwfButton(onSelect: (uri: Uri) -> Unit) {
     }
 
     OutlinedButton(
+        enabled = enabled,
         onClick = {
             launcher.launch(
                 // Ideally "application/x-shockwave-flash" would be
@@ -218,7 +258,7 @@ fun SelectSwfScreenPreview() {
     RuffleTheme {
         Surface {
             SelectSwfScreen(
-                openSwf = {}
+                openSwf = { _, _ -> }
             )
         }
     }

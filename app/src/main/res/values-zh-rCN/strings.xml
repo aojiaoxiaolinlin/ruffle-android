@@ -5,5 +5,8 @@
     <string name="open_url">打开链接</string>
     <string name="select_a_swf">选择本地swf文件</string>
     <string name="url">请输入网页链接</string>
+    <string name="custom_base_url">自定义基础网址（可选）</string>
+    <string name="custom_base_url_hint">相对资源路径将基于此 HTTP(S) 地址加载。目录网址请以 / 结尾，留空则使用 SWF 所在位置。</string>
+    <string name="invalid_base_url">请输入完整的 HTTP 或 HTTPS 网址，包含服务器地址。</string>
     <string name="work_in_progress_warning">这款应用还在开发中，一些功能可能尚未实现！</string>
 </resources>

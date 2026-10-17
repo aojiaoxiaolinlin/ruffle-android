@@ -5,5 +5,8 @@
     <string name="open_url">Open URL</string>
     <string name="select_a_swf">Select a SWF</string>
     <string name="url">URL</string>
+    <string name="custom_base_url">Custom base URL (optional)</string>
+    <string name="custom_base_url_hint">Resolve relative resource URLs against this HTTP(S) address. End a directory URL with /. Leave empty to use the SWF location.</string>
+    <string name="invalid_base_url">Enter a complete HTTP or HTTPS URL, including the server address.</string>
     <string name="work_in_progress_warning">This app is a work in progress. Some functionality may not be implemented yet!</string>
 </resources>

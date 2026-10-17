@@ -303,7 +303,19 @@ async fn run(app: AndroidApp) {
                                     )
                                     .unwrap()
                                 };
-                                let movie_url = Url::parse("file://movie.swf").unwrap();
+                                let (url, bytes, base_url) = with_activity(&app, |env, activity| {
+                                    (
+                                        JavaInterface::get_swf_uri(env, activity),
+                                        JavaInterface::get_swf_bytes(env, activity),
+                                        JavaInterface::get_base_url(env, activity),
+                                    )
+                                })
+                                .unwrap();
+                                let movie_url = Url::parse(&url).unwrap();
+                                let base_url = base_url
+                                    .and_then(|base| Url::parse(&base).ok())
+                                    .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())
+                                    .unwrap_or_else(|| movie_url.clone());
                                 let player_id = PlayerId::new();
 
                                 let future_spawner = AndroidExecutor {
@@ -312,12 +324,12 @@ async fn run(app: AndroidApp) {
                                 };
 
                                 let navigator = ExternalNavigatorBackend::new(
-                                    movie_url.clone(),
+                                    base_url,
                                     None,
                                     None,
                                     future_spawner,
                                     None,
-                                    true,
+                                    false,
                                     Default::default(),
                                     ruffle_core::backend::navigator::SocketMode::Allow,
                                     Rc::new(PlayingContent::DirectFile(ContentDescriptor::new_remote(movie_url))),
@@ -341,14 +353,6 @@ async fn run(app: AndroidApp) {
 
                                 let player = &playerbox.as_ref().unwrap().player;
                                 let mut player_lock = player.lock().unwrap();
-                                let (url, bytes) = with_activity(&app, |env, activity| {
-                                    (
-                                        JavaInterface::get_swf_uri(env, activity),
-                                        JavaInterface::get_swf_bytes(env, activity),
-                                    )
-                                })
-                                .unwrap();
-
                                 if let Some(bytes) = bytes {
                                     let movie = SwfMovieData::from_data(&bytes, url, None, None).unwrap();
                                     player_lock.mutate_with_update_context(|context| {

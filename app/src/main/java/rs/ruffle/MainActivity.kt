@@ -15,17 +15,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RuffleTheme {
-                RuffleNavHost(openSwf = { openSwf(it) })
+                RuffleNavHost(openSwf = { uri, baseUrl -> openSwf(uri, baseUrl) })
             }
         }
     }
 
-    private fun openSwf(uri: Uri) {
+    private fun openSwf(uri: Uri, baseUrl: String?) {
         val intent = Intent(
             this@MainActivity,
             PlayerActivity::class.java
         ).apply {
             data = uri
+            putExtra("baseUrl", baseUrl)
         }
         startActivity(intent)
     }
