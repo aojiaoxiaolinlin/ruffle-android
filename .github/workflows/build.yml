@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ main, codex/android-development ]
+    branches: [ main, codex/android-development, kabu ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -137,12 +137,20 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS || env.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD || env.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD || env.SIGNING_STORE_PASSWORD }}
-        run: ./gradlew assembleRelease
+        run: ./gradlew :app:testDebugUnitTest assembleRelease
+
+      - name: Name Kabu APKs
+        run: |
+          mkdir -p kabu-apks
+          for apk in app/build/outputs/apk/release/*.apk; do
+            name="${apk##*/}"
+            cp "$apk" "kabu-apks/卡布-${name#app-}"
+          done
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ruffle-release-apks
-          path: app/build/outputs/apk/release/*.apk
+          name: kabu-release-apks
+          path: kabu-apks/*.apk
 
   android-tests:
     name: Android Tests

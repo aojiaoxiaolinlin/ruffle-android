@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Ruffle</string>
+    <string name="app_name">卡布</string>
     <string name="toggle_keyboard">Show or hide keyboard</string>
     <string name="player_menu">Player menu</string>
     <string name="reload_movie">Reload</string>

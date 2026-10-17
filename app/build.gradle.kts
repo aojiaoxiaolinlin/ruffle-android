@@ -24,7 +24,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "rs.ruffle"
+        applicationId = "rs.ruffle.kabu"
         minSdk = 26
         targetSdk = 35
         versionCode = 261014
@@ -74,6 +74,18 @@ android {
     buildFeatures {
         compose = true
         prefab = true
+    }
+
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
+
+    testOptions {
+        unitTests.all {
+            // OpenJDK restricts Origin; Android's HTTP implementation allows it.
+            it.systemProperty("sun.net.http.allowRestrictedHeaders", "true")
+        }
     }
 
     packaging {

@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.matcher.ViewMatchers.assertThat
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,7 +20,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-private const val BASIC_SAMPLE_PACKAGE = "rs.ruffle"
+private const val BASIC_SAMPLE_PACKAGE = "rs.ruffle.kabu"
 private const val LAUNCH_TIMEOUT = 5000L
 
 @RunWith(AndroidJUnit4::class)
@@ -57,7 +58,7 @@ class SmokeTest {
         val intent = context.packageManager.getLaunchIntentForPackage(
             BASIC_SAMPLE_PACKAGE
         )?.apply {
-            component = ComponentName("rs.ruffle", "rs.ruffle.PlayerActivity")
+            component = ComponentName(BASIC_SAMPLE_PACKAGE, "rs.ruffle.PlayerActivity")
             data = Uri.fromFile(swfFile)
             putExtra("traceOutput", traceOutput.absolutePath)
             // Clear out any previous instances
@@ -74,8 +75,35 @@ class SmokeTest {
 
     @Test
     fun emulatorRunsASwf() {
-        device.waitForWindowUpdate(null, 1000)
         assertThat(device, notNullValue())
+        waitForHelloTrace()
+    }
+
+    @Test
+    fun reloadFromFloatingMenuRestartsTheMovie() {
+        waitForHelloTrace()
+        val menuButton = checkNotNull(
+            device.wait(Until.findObject(By.res(BASIC_SAMPLE_PACKAGE, "button_cm")), LAUNCH_TIMEOUT)
+        )
+        menuButton.click()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val reload = checkNotNull(
+            device.wait(
+                Until.findObject(By.text(context.getString(rs.ruffle.R.string.reload_movie))),
+                LAUNCH_TIMEOUT
+            )
+        )
+        traceOutput.writeText("Waiting for reload\n")
+        reload.click()
+        waitForHelloTrace()
+    }
+
+    private fun waitForHelloTrace() {
+        val deadline = SystemClock.elapsedRealtime() + LAUNCH_TIMEOUT
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (traceOutput.readLines() == listOf("Hello from Flash!")) return
+            SystemClock.sleep(100)
+        }
 
         val trace = traceOutput.readLines()
         assertThat(trace, equalTo(listOf("Hello from Flash!")))

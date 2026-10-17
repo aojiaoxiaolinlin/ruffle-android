@@ -15,18 +15,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RuffleTheme {
-                RuffleNavHost(openSwf = { uri, baseUrl -> openSwf(uri, baseUrl) })
+                KabuLoginScreen { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
             }
         }
     }
 
-    private fun openSwf(uri: Uri, baseUrl: String?) {
+    private fun openSwf(uri: Uri, baseUrl: String?, auth: String) {
         val intent = Intent(
             this@MainActivity,
             PlayerActivity::class.java
         ).apply {
             data = uri
             putExtra("baseUrl", baseUrl)
+            putExtra("authString", auth)
         }
         startActivity(intent)
     }

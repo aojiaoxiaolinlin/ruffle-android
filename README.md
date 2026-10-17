@@ -1,4 +1,22 @@
-This is a native Android application for [Ruffle](https://ruffle.rs).
+# 卡布 Android
+
+The `kabu` branch is a Kabu Xiyou launcher built on [Ruffle](https://ruffle.rs).
+Install **卡布**, enter your 4399 username and password, and tap **登录并进入游戏**.
+It obtains a fresh `auth_string` using the same protocol as `kabu-login`, then opens
+`GreenGame.swf` with the token as a FlashVar and the game's resource base URL configured automatically.
+Passwords are not saved to files, preferences or saved instance state, and are not logged.
+Accounts requiring a CAPTCHA cannot complete verification in this shortcut login screen.
+
+The keyboard and menu buttons form a small floating toolbar. Drag either button to move it;
+it docks to the nearest side and stays inside the display's safe area. The menu includes **重新加载**,
+which restarts the player with the same game and launch parameters. Exit returns to the login screen.
+
+The application ID is `rs.ruffle.kabu`, so this build can coexist with the general Ruffle app.
+The app label is **卡布**, and CI produces `卡布-<ABI>-release.apk` files in the **kabu-release-apks** artifact.
+Pushes to `kabu` automatically trigger the Build workflow. The `main` branch remains aligned with upstream;
+general Android improvements are maintained on `codex/android-development`.
+
+The general Ruffle documentation below applies to the non-Kabu build unless otherwise stated.
 
 It is in a very early stage.
 

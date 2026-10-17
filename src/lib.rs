@@ -305,14 +305,19 @@ async fn run(app: AndroidApp) {
                                     )
                                     .unwrap()
                                 };
-                                let (url, bytes, base_url) = with_activity(&app, |env, activity| {
+                                let (url, bytes, base_url, auth_string) = with_activity(&app, |env, activity| {
                                     (
                                         JavaInterface::get_swf_uri(env, activity),
                                         JavaInterface::get_swf_bytes(env, activity),
                                         JavaInterface::get_base_url(env, activity),
+                                        JavaInterface::get_auth_string(env, activity),
                                     )
                                 })
                                 .unwrap();
+                                let parameters = auth_string
+                                    .filter(|auth| !auth.is_empty())
+                                    .map(|auth| vec![("auth_string".to_owned(), auth)])
+                                    .unwrap_or_default();
                                 let movie_url = Url::parse(&url).unwrap();
                                 let base_url = base_url
                                     .and_then(|base| Url::parse(&base).ok())
@@ -364,12 +369,13 @@ async fn run(app: AndroidApp) {
                                     player_lock.set_default_font(font, families.into_iter().map(str::to_owned).collect());
                                 }
                                 if let Some(bytes) = bytes {
-                                    let movie = SwfMovie::from_data(&bytes, url, None, None).unwrap();
+                                    let mut movie = SwfMovie::from_data(&bytes, url, None, None).unwrap();
+                                    movie.append_parameters(parameters);
                                     player_lock.mutate_with_update_context(|context| {
                                         context.set_root_movie(movie);
                                     });
                                 } else {
-                                    player_lock.fetch_root_movie(url, Vec::new(), Box::new(|_| {}))
+                                    player_lock.fetch_root_movie(url, parameters, Box::new(|_| {}))
                                 }
                                 player_lock.set_is_playing(true); // Desktop player will auto-play.
 

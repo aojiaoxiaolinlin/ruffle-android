@@ -12,8 +12,8 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
@@ -32,6 +32,7 @@ import kotlin.math.abs
 class PlayerActivity : GameActivity() {
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
+
     @Suppress("unused")
     // Used by Rust
     private val swfBytes: ByteArray?
@@ -65,6 +66,11 @@ class PlayerActivity : GameActivity() {
     // Used by Rust
     private val baseUrl: String?
         get() = intent.getStringExtra("baseUrl")
+
+    @Suppress("unused")
+    // Used by Rust; never put this value in the SWF URL or logs.
+    private val authString: String?
+        get() = intent.getStringExtra("authString")
 
     @Suppress("unused")
     // Used by Rust
@@ -260,7 +266,8 @@ class PlayerActivity : GameActivity() {
                     view.isPressed = false
                     if (dragging) {
                         toolbarOnRight = toolbar.x + toolbar.width / 2f > layout.width / 2f
-                        toolbarPosition = (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        toolbarPosition =
+                            (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                         positionToolbar()
                     } else if (event.actionMasked == MotionEvent.ACTION_UP) {
                         view.performClick()
@@ -286,12 +293,24 @@ class PlayerActivity : GameActivity() {
         )
         val margin = 8 * resources.displayMetrics.density
         val left = (insets?.left ?: 0) + margin
-        val right = (parent.width - (insets?.right ?: 0) - toolbar.width - margin).coerceAtLeast(left)
+        val right = (parent.width - (insets?.right ?: 0) - toolbar.width - margin).coerceAtLeast(
+            left
+        )
         val top = (insets?.top ?: 0) + margin
         val keyboard = findViewById<View>(R.id.keyboard)
-        val bottom = if (keyboard.visibility == View.VISIBLE) keyboard.top else parent.height - (insets?.bottom ?: 0)
+        val bottom = if (keyboard.visibility ==
+            View.VISIBLE
+        ) {
+            keyboard.top
+        } else {
+            parent.height - (insets?.bottom ?: 0)
+        }
         toolbar.x = if (toolbarOnRight) right else left
-        toolbar.y = (toolbarPosition * parent.height).coerceIn(top, (bottom - toolbar.height - margin).coerceAtLeast(top))
+        toolbar.y =
+            (toolbarPosition * parent.height).coerceIn(
+                top,
+                (bottom - toolbar.height - margin).coerceAtLeast(top)
+            )
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
