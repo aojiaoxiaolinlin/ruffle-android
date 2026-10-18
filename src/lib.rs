@@ -26,7 +26,8 @@ use std::{
     fs::OpenOptions,
     io::Write,
     panic,
-    sync::{Arc, Mutex},
+    path::PathBuf,
+    sync::{Arc, Mutex, OnceLock},
     thread,
     time::Instant,
 };
@@ -82,6 +83,10 @@ impl PlayerId {
 /// Handling too many in one frame causes large memory spikes in the Adreno
 /// driver, so spread a burst over a few frames instead of exhausting memory.
 const MAX_EVENTS_PER_ITERATION: usize = 8;
+
+/// Set once the player starts, so the panic hook can persist its message even
+/// when Android logcat output is encrypted by the vendor.
+static PANIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 fn stage_quality_from_int(value: i32) -> StageQuality {
     match value {
@@ -169,6 +174,7 @@ async fn run(app: AndroidApp) {
     let mut perf_render_time = Duration::ZERO;
     let mut perf_tick_max = Duration::ZERO;
     let mut perf_render_max = Duration::ZERO;
+    let mut last_texture_pool_bytes = 0u64;
 
     log::info!("Starting event loop...");
     let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut sys::JavaVM) };
@@ -194,6 +200,9 @@ async fn run(app: AndroidApp) {
     // Some Android OEMs (e.g. Honor) encrypt logcat output for non-debuggable
     // apps, so mirror the same diagnostics into a file adb can pull.
     let perf_log_path = external_files_dir.map(|dir| dir.join("perf.log"));
+    if let Some(path) = &perf_log_path {
+        let _ = PANIC_LOG_PATH.set(path.clone());
+    }
     let mut perf_file = perf_log_path.as_ref().and_then(|path| {
         let _ = std::fs::write(path, b"");
         OpenOptions::new().create(true).append(true).open(path).ok()
@@ -698,6 +707,13 @@ async fn run(app: AndroidApp) {
                     perf_renders += 1;
                     perf_render_time += render_elapsed;
                     perf_render_max = perf_render_max.max(render_elapsed);
+                    if let Some(renderer) =
+                        <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
+                            player.renderer_mut(),
+                        )
+                    {
+                        last_texture_pool_bytes = renderer.texture_pool_bytes();
+                    }
                 }
             }
         }
@@ -708,7 +724,7 @@ async fn run(app: AndroidApp) {
             let render_avg =
                 perf_render_time.as_secs_f64() * 1000.0 / f64::from(perf_renders.max(1));
             let perf_line = format!(
-                "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms",
+                "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB",
                 perf_ticks,
                 perf_renders,
                 f64::from(perf_renders) / elapsed,
@@ -716,6 +732,7 @@ async fn run(app: AndroidApp) {
                 perf_tick_max.as_secs_f64() * 1000.0,
                 render_avg,
                 perf_render_max.as_secs_f64() * 1000.0,
+                last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
             );
             log::info!(target: "ruffle", "{perf_line}");
             if let Some(file) = &mut perf_file {
@@ -928,6 +945,14 @@ fn native_init(env: &mut Env, class: &JClass, crash_callback: &JObject) -> jni::
             ),
         };
         log::error!(target: "panic","{}", full);
+
+        // Persist the panic for devices whose logcat is encrypted.
+        if let Some(path) = PANIC_LOG_PATH.get() {
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+                let _ = writeln!(file, "\n=== PANIC ===\n{full}");
+                let _ = file.flush();
+            }
+        }
 
         // Any exception already pending on this thread is stashed by the attachment while the
         // callback runs, and re-thrown afterwards, so java will still discover it on their own.
