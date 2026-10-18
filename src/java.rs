@@ -22,6 +22,10 @@ pub struct JavaInterface {
     get_trace_output: JMethodID,
     get_loc_in_window: JMethodID,
     get_android_data_storage_dir: JMethodID,
+    get_stage_quality: JMethodID,
+    get_render_scale: JMethodID,
+    get_graphics_backend: JMethodID,
+    get_external_files_dir_path: JMethodID,
 }
 
 static JAVA_INTERFACE: OnceLock<JavaInterface> = OnceLock::new();
@@ -164,6 +168,71 @@ impl JavaInterface {
         (data[0], data[1])
     }
 
+    pub fn get_stage_quality(env: &mut Env, this: &JObject) -> i32 {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_stage_quality,
+                ReturnType::Primitive(Primitive::Int),
+                &[],
+            )
+        };
+        result
+            .expect("getStageQuality() must never throw")
+            .i()
+            .unwrap()
+    }
+
+    pub fn get_render_scale(env: &mut Env, this: &JObject) -> f32 {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_render_scale,
+                ReturnType::Primitive(Primitive::Float),
+                &[],
+            )
+        };
+        result
+            .expect("getRenderScale() must never throw")
+            .f()
+            .unwrap()
+    }
+
+    pub fn get_graphics_backend(env: &mut Env, this: &JObject) -> i32 {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_graphics_backend,
+                ReturnType::Primitive(Primitive::Int),
+                &[],
+            )
+        };
+        result
+            .expect("getGraphicsBackend() must never throw")
+            .i()
+            .unwrap()
+    }
+
+    pub fn get_external_files_dir_path(env: &mut Env, this: &JObject) -> Option<PathBuf> {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_external_files_dir_path,
+                ReturnType::Object,
+                &[],
+            )
+        };
+        let object = result
+            .expect("getExternalFilesDirPath() must never throw")
+            .l()
+            .unwrap();
+        if object.is_null() {
+            return None;
+        }
+        let string_object = unsafe { env.as_cast_unchecked::<JString>(&object) };
+        Some(PathBuf::from(string_object.try_to_string(env).unwrap()))
+    }
+
     pub fn get_android_data_storage_dir(env: &mut Env, this: &JObject) -> PathBuf {
         let result = unsafe {
             env.call_method_unchecked(
@@ -244,6 +313,22 @@ impl JavaInterface {
                     jni_sig!("()Ljava/lang/String;"),
                 )
                 .expect("getAndroidDataStorageDir must exist"),
+            get_stage_quality: env
+                .get_method_id(class, jni_str!("getStageQuality"), jni_sig!("()I"))
+                .expect("getStageQuality must exist"),
+            get_render_scale: env
+                .get_method_id(class, jni_str!("getRenderScale"), jni_sig!("()F"))
+                .expect("getRenderScale must exist"),
+            get_graphics_backend: env
+                .get_method_id(class, jni_str!("getGraphicsBackend"), jni_sig!("()I"))
+                .expect("getGraphicsBackend must exist"),
+            get_external_files_dir_path: env
+                .get_method_id(
+                    class,
+                    jni_str!("getExternalFilesDirPath"),
+                    jni_sig!("()Ljava/lang/String;"),
+                )
+                .expect("getExternalFilesDirPath must exist"),
         });
     }
 }

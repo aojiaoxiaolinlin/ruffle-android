@@ -24,7 +24,13 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "rs.ruffle.kabu"
+        // Local builds use a separate id so they can coexist with the
+        // CI-signed release and keep using different signing keys.
+        applicationId = if (project.hasProperty("localBuild")) {
+            "rs.ruffle.kabu.local"
+        } else {
+            "rs.ruffle.kabu"
+        }
         minSdk = 26
         targetSdk = 35
         versionCode = 261014

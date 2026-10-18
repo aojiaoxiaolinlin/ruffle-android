@@ -2,6 +2,16 @@
     <string name="app_name">游戏不卡</string>
     <string name="toggle_keyboard">显示或隐藏键盘</string>
     <string name="player_menu">播放器菜单</string>
+    <string name="player_settings">播放设置</string>
+    <string name="render_scale">渲染分辨率</string>
+    <string name="stage_quality">画质</string>
+    <string name="quality_low">流畅（关闭抗锯齿）</string>
+    <string name="quality_medium">均衡（2x MSAA）</string>
+    <string name="quality_high">高清（4x MSAA）</string>
+    <string name="graphics_backend">图形后端</string>
+    <string name="backend_gles">稳定（GLES）</string>
+    <string name="backend_vulkan">实验（Vulkan）</string>
+    <string name="backend_reload_hint">重新加载游戏后生效</string>
     <string name="reload_movie">重新加载</string>
     <string name="exit_player">退出</string>
     <string name="logo_description">Ruffle Logo</string>

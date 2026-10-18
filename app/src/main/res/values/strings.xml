@@ -3,6 +3,16 @@
     <string name="client_copyright">客户端版权归“傲娇小霖霖”所有。</string>
     <string name="toggle_keyboard">Show or hide keyboard</string>
     <string name="player_menu">Player menu</string>
+    <string name="player_settings">Player settings</string>
+    <string name="render_scale">Render resolution</string>
+    <string name="stage_quality">Stage quality</string>
+    <string name="quality_low">Smooth (no anti-aliasing)</string>
+    <string name="quality_medium">Balanced (2x MSAA)</string>
+    <string name="quality_high">Sharp (4x MSAA)</string>
+    <string name="graphics_backend">Graphics backend</string>
+    <string name="backend_gles">Stable (GLES)</string>
+    <string name="backend_vulkan">Experimental (Vulkan)</string>
+    <string name="backend_reload_hint">Reload the movie to apply the graphics backend</string>
     <string name="reload_movie">Reload</string>
     <string name="exit_player">Exit</string>
     <string name="logo_description">Ruffle Logo</string>
