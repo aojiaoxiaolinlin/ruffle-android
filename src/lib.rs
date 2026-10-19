@@ -175,6 +175,9 @@ async fn run(app: AndroidApp) {
     let mut perf_tick_max = Duration::ZERO;
     let mut perf_render_max = Duration::ZERO;
     let mut last_texture_pool_bytes = 0u64;
+    let mut last_bitmap_uploaded_bytes = 0u64;
+    let mut last_bitmap_target_bytes = 0u64;
+    let mut last_bitmap_cache_bytes = 0u64;
 
     log::info!("Starting event loop...");
     let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut sys::JavaVM) };
@@ -713,6 +716,12 @@ async fn run(app: AndroidApp) {
                         )
                     {
                         last_texture_pool_bytes = renderer.texture_pool_bytes();
+                        if perf_renders == 1 || perf_renders % 24 == 0 {
+                            let stats = renderer.bitmap_texture_stats();
+                            last_bitmap_uploaded_bytes = stats.uploaded_bytes;
+                            last_bitmap_target_bytes = stats.target_bytes;
+                            last_bitmap_cache_bytes = stats.cache_bytes;
+                        }
                     }
                 }
             }
@@ -724,7 +733,7 @@ async fn run(app: AndroidApp) {
             let render_avg =
                 perf_render_time.as_secs_f64() * 1000.0 / f64::from(perf_renders.max(1));
             let perf_line = format!(
-                "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB",
+                "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
                 perf_ticks,
                 perf_renders,
                 f64::from(perf_renders) / elapsed,
@@ -733,6 +742,9 @@ async fn run(app: AndroidApp) {
                 render_avg,
                 perf_render_max.as_secs_f64() * 1000.0,
                 last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_cache_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_uploaded_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_target_bytes as f64 / (1024.0 * 1024.0),
             );
             log::info!(target: "ruffle", "{perf_line}");
             if let Some(file) = &mut perf_file {
