@@ -39,8 +39,8 @@ wgpu = { version = "30.0.1", features = ["vulkan"] }
 
 # Keep all Ruffle crates on the Android fork merge: BGM unload cleanup,
 # background surface handling, bounded texture caches, Scale9 and font/event fixes.
-ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119" }
-ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119", features = [
+ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a" }
+ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -49,10 +49,10 @@ ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119" }
-ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119" }
-ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119" }
-ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "f14fb33b001265dafc42100059dc69777375e119", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
+ruffle_render = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a" }
+ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a" }
+ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a" }
+ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "395b577c981f6bd9ef8165ce76dc3db28fe2c88a", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
 
 log = "0.4.32"
 
