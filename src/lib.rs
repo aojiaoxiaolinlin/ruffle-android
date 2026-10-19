@@ -178,6 +178,7 @@ async fn run(app: AndroidApp) {
     let mut last_bitmap_uploaded_bytes = 0u64;
     let mut last_bitmap_target_bytes = 0u64;
     let mut last_bitmap_cache_bytes = 0u64;
+    let mut last_pressure_flushes = 0u64;
 
     log::info!("Starting event loop...");
     let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut sys::JavaVM) };
@@ -710,17 +711,43 @@ async fn run(app: AndroidApp) {
                     perf_renders += 1;
                     perf_render_time += render_elapsed;
                     perf_render_max = perf_render_max.max(render_elapsed);
-                    if let Some(renderer) =
-                        <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
-                            player.renderer_mut(),
-                        )
+                    if let Some(renderer) = <dyn Any>::downcast_mut::<
+                        WgpuRenderBackend<SwapChainTarget>,
+                    >(player.renderer_mut())
                     {
                         last_texture_pool_bytes = renderer.texture_pool_bytes();
+                        let pressure_flushes = renderer.scratch_pressure_flushes();
+                        let pressure_flushes_this_frame =
+                            pressure_flushes.saturating_sub(last_pressure_flushes);
+                        last_pressure_flushes = pressure_flushes;
                         if perf_renders == 1 || perf_renders % 24 == 0 {
                             let stats = renderer.bitmap_texture_stats();
                             last_bitmap_uploaded_bytes = stats.uploaded_bytes;
                             last_bitmap_target_bytes = stats.target_bytes;
                             last_bitmap_cache_bytes = stats.cache_bytes;
+                        }
+                        if render_elapsed >= Duration::from_millis(120) {
+                            let (main, _) = renderer.scratch_texture_stats();
+                            let bitmaps = renderer.bitmap_texture_stats();
+                            let slow_line = format!(
+                                "slow-render: {:.1}ms dt={}us tex_pool={:.1}MiB scratch_created={} scratch_created_bytes={:.1}MiB scratch_flushes={} deferred={} fallback={} cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
+                                render_elapsed.as_secs_f64() * 1000.0,
+                                dt,
+                                last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
+                                main.created_textures,
+                                main.created_bytes as f64 / (1024.0 * 1024.0),
+                                pressure_flushes_this_frame,
+                                main.deferred_layers,
+                                main.fallback_layers,
+                                bitmaps.cache_bytes as f64 / (1024.0 * 1024.0),
+                                bitmaps.uploaded_bytes as f64 / (1024.0 * 1024.0),
+                                bitmaps.target_bytes as f64 / (1024.0 * 1024.0),
+                            );
+                            log::info!(target: "ruffle", "{slow_line}");
+                            if let Some(file) = &mut perf_file {
+                                let _ = writeln!(file, "{slow_line}");
+                                let _ = file.flush();
+                            }
                         }
                     }
                 }
