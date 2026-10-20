@@ -23,8 +23,11 @@ use std::sync::mpsc::Sender;
 use std::sync::{mpsc, MutexGuard};
 use std::time::Duration;
 use std::{
+    fs::OpenOptions,
+    io::Write,
     panic,
-    sync::{Arc, Mutex},
+    path::PathBuf,
+    sync::{Arc, Mutex, OnceLock},
     thread,
     time::Instant,
 };
@@ -51,6 +54,7 @@ use ruffle_frontend_utils::{
     backends::navigator::{ExternalNavigatorBackend, FutureSpawner},
     content::ContentDescriptor,
 };
+use ruffle_render::quality::StageQuality;
 
 use crate::navigator::AndroidNavigatorInterface;
 use crate::trace::FileLogBackend;
@@ -70,6 +74,25 @@ impl PlayerId {
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
         assert!(id >= 0, "PlayerId overflowed!");
         Self(id)
+    }
+}
+
+/// Maps the value stored by the Android settings UI to a Ruffle stage quality.
+/// Anything unexpected falls back to `Medium`, which disables 4x MSAA.
+/// Loader completions decode images and create/upload textures synchronously.
+/// Handling too many in one frame causes large memory spikes in the Adreno
+/// driver, so spread a burst over a few frames instead of exhausting memory.
+const MAX_EVENTS_PER_ITERATION: usize = 8;
+
+/// Set once the player starts, so the panic hook can persist its message even
+/// when Android logcat output is encrypted by the vendor.
+static PANIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+fn stage_quality_from_int(value: i32) -> StageQuality {
+    match value {
+        0 => StageQuality::Low,
+        2 => StageQuality::High,
+        _ => StageQuality::Medium,
     }
 }
 
@@ -134,6 +157,7 @@ async fn run(app: AndroidApp) {
     let mut last_frame_time = Instant::now();
     let mut next_frame_time = Some(Instant::now());
     let mut quit = false;
+    let mut is_resumed = false;
     let (sender, receiver) = mpsc::channel::<RuffleEvent>();
     let mut native_window: Option<ndk::native_window::NativeWindow> = None;
     let mut playerbox: Option<ActivePlayer> = None;
@@ -142,32 +166,60 @@ async fn run(app: AndroidApp) {
         waker: app.create_waker(),
     };
 
+    // Aggregated once per second so logcat stays readable.
+    let mut perf_window_start = Instant::now();
+    let mut perf_ticks = 0u32;
+    let mut perf_renders = 0u32;
+    let mut perf_tick_time = Duration::ZERO;
+    let mut perf_render_time = Duration::ZERO;
+    let mut perf_tick_max = Duration::ZERO;
+    let mut perf_render_max = Duration::ZERO;
+    let mut last_texture_pool_bytes = 0u64;
+    let mut last_bitmap_uploaded_bytes = 0u64;
+    let mut last_bitmap_target_bytes = 0u64;
+    let mut last_bitmap_cache_bytes = 0u64;
+    let mut last_pressure_flushes = 0u64;
+
     log::info!("Starting event loop...");
     let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut sys::JavaVM) };
     // This is a global reference, so it can only be borrowed, not wrapped as a local one.
     let activity_raw = app.activity_as_ptr() as jobject;
 
-    let (trace_output, android_storage_dir) = vm
+    let (trace_output, android_storage_dir, external_files_dir) = vm
         .attach_current_thread(|env| -> jni::errors::Result<_> {
             let activity = unsafe { env.as_cast_raw::<JObject>(&activity_raw) }?;
             let trace_output = JavaInterface::get_trace_output(env, &activity);
             let android_storage_dir = JavaInterface::get_android_data_storage_dir(env, &activity);
+            let external_files_dir = JavaInterface::get_external_files_dir_path(env, &activity);
             let _ = unsafe {
                 env.set_rust_field(&*activity, jni_str!("eventLoopHandle"), sender.clone())
             };
             // Lets reqwest verify server certificates using Android's trust store.
             let context = env.new_local_ref(&*activity)?;
             rustls_platform_verifier::android::init_with_env(env, context)?;
-            Ok((trace_output, android_storage_dir))
+            Ok((trace_output, android_storage_dir, external_files_dir))
         })
         .expect("JNI calls on the main thread must succeed");
 
+    // Some Android OEMs (e.g. Honor) encrypt logcat output for non-debuggable
+    // apps, so mirror the same diagnostics into a file adb can pull.
+    let perf_log_path = external_files_dir.map(|dir| dir.join("perf.log"));
+    if let Some(path) = &perf_log_path {
+        let _ = PANIC_LOG_PATH.set(path.clone());
+    }
+    let mut perf_file = perf_log_path.as_ref().and_then(|path| {
+        let _ = std::fs::write(path, b"");
+        OpenOptions::new().create(true).append(true).open(path).ok()
+    });
+
     while !quit {
         let mut needs_redraw = false;
+        // The frame timer starts when the frame is due, not when the previous
+        // poll started: rendering time must not be added to the next wait.
         app.poll_events(
             Some(
                 next_frame_time
-                    .and_then(|next| next.checked_duration_since(last_frame_time))
+                    .map(|next| next.saturating_duration_since(Instant::now()))
                     .unwrap_or_else(|| Duration::from_millis(100)),
             ),
             |event| {
@@ -183,9 +235,12 @@ async fn run(app: AndroidApp) {
                         MainEvent::WindowResized { .. } => {
                             if let Some(player) = playerbox.as_ref() {
                                 let mut player_lock = player.player.lock().unwrap();
-                                let window = native_window
-                                    .as_ref()
-                                    .expect("native_window should be Some for a WindowResized");
+                                let Some(window) = native_window.as_ref() else {
+                                    return;
+                                };
+                                if window.width() <= 0 || window.height() <= 0 {
+                                    return;
+                                }
                                 log::info!(
                                     "WindowResized: {} x {}",
                                     window.width(),
@@ -206,38 +261,19 @@ async fn run(app: AndroidApp) {
                             }
                         }
                         MainEvent::Resume { .. } => {
+                            is_resumed = true;
                             if let Some(player) = playerbox.as_ref() {
-                                if let Some(window) = native_window.as_ref() {
-                                    // [NA] For some reason we can get negative sizes during a resume...
-                                    if window.width() > 0 && window.height() > 0 {
-                                        unsafe {
-                                            let mut player = player
-                                                .player
-                                                .lock()
-                                                .unwrap();
-
-                                            let renderer = <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
-                                                player.renderer_mut(),
-                                            )
-                                            .unwrap();
-
-                                            renderer.recreate_surface_unsafe(
-                                                wgpu::SurfaceTargetUnsafe::RawHandle {
-                                                    raw_display_handle:
-                                                        Some(RawDisplayHandle::Android(
-                                                            AndroidDisplayHandle::new(),
-                                                        )),
-                                                    raw_window_handle: window
-                                                        .window_handle()
-                                                        .unwrap()
-                                                        .into(),
-                                                },
-                                                (window.width() as u32, window.height() as u32),
-                                            )
-                                            .unwrap();
-                                        }
-                                    }
-                                }
+                                let mut player = player.player.lock().unwrap();
+                                <dyn Any>::downcast_mut::<AAudioAudioBackend>(player.audio_mut())
+                                    .unwrap().set_backgrounded(false);
+                            }
+                        }
+                        MainEvent::Pause => {
+                            is_resumed = false;
+                            if let Some(player) = playerbox.as_ref() {
+                                let mut player = player.player.lock().unwrap();
+                                <dyn Any>::downcast_mut::<AAudioAudioBackend>(player.audio_mut())
+                                    .unwrap().set_backgrounded(true);
                             }
                         }
                         MainEvent::InitWindow { .. } => {
@@ -261,6 +297,26 @@ async fn run(app: AndroidApp) {
                                 window.height(),
                                 playerbox.is_some()
                             );
+                            if let Ok((view_width, view_height)) = get_view_size(&app) {
+                                log::info!(
+                                    target: "ruffle",
+                                    "view size: {view_width} x {view_height} (buffer {} x {})",
+                                    window.width(),
+                                    window.height()
+                                );
+                                if let Some(path) = &perf_log_path {
+                                    if let Ok(mut file) =
+                                        OpenOptions::new().create(true).append(true).open(path)
+                                    {
+                                        let _ = writeln!(
+                                            file,
+                                            "view size: {view_width} x {view_height} (buffer {} x {})",
+                                            window.width(),
+                                            window.height()
+                                        );
+                                    }
+                                }
+                            }
 
                             if let Some(activeplayer) = &playerbox {
                                 let mut player_lock = activeplayer.player.lock().unwrap();
@@ -284,10 +340,18 @@ async fn run(app: AndroidApp) {
                                     )
                                     .unwrap();
                                 }
-                                player_lock.set_is_playing(true);
                             } else {
-                                let renderer = unsafe {
-                                    // TODO: make this take an Arc<Window> instead?
+                                let (url, bytes, stage_quality, graphics_backend) = with_activity(&app, |env, activity| {
+                                    (
+                                        JavaInterface::get_swf_uri(env, activity),
+                                        JavaInterface::get_swf_bytes(env, activity),
+                                        JavaInterface::get_stage_quality(env, activity),
+                                        JavaInterface::get_graphics_backend(env, activity),
+                                    )
+                                })
+                                .unwrap();
+                                // TODO: make this take an Arc<Window> instead?
+                                let create_renderer = |backends: wgpu::Backends| unsafe {
                                     WgpuRenderBackend::for_window_unsafe(
                                         wgpu::SurfaceTargetUnsafe::RawHandle {
                                             raw_display_handle: Some(RawDisplayHandle::Android(
@@ -299,25 +363,33 @@ async fn run(app: AndroidApp) {
                                                 .into(),
                                         },
                                         (dimensions.width, dimensions.height),
-                                        wgpu::Backends::GL,
+                                        backends,
                                         wgpu::PowerPreference::HighPerformance,
                                         None,
                                     )
-                                    .unwrap()
                                 };
-                                let (url, bytes, base_url) = with_activity(&app, |env, activity| {
-                                    (
-                                        JavaInterface::get_swf_uri(env, activity),
-                                        JavaInterface::get_swf_bytes(env, activity),
-                                        JavaInterface::get_base_url(env, activity),
-                                    )
-                                })
-                                .unwrap();
+                                // GLES is the stable default. Vulkan is faster on
+                                // some devices but currently crashes in the
+                                // Adreno 750 driver while recording command
+                                // buffers, so it is opt-in from the settings.
+                                let renderer = if graphics_backend == 1 {
+                                    match create_renderer(wgpu::Backends::VULKAN) {
+                                        Ok(renderer) => {
+                                            log::info!("Using wgpu Vulkan backend (experimental)");
+                                            renderer
+                                        }
+                                        Err(error) => {
+                                            log::warn!(
+                                                "Vulkan unavailable ({error}); falling back to GLES"
+                                            );
+                                            create_renderer(wgpu::Backends::GL).unwrap()
+                                        }
+                                    }
+                                } else {
+                                    log::info!("Using wgpu GLES backend");
+                                    create_renderer(wgpu::Backends::GL).unwrap()
+                                };
                                 let movie_url = Url::parse(&url).unwrap();
-                                let base_url = base_url
-                                    .and_then(|base| Url::parse(&base).ok())
-                                    .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())
-                                    .unwrap_or_else(|| movie_url.clone());
                                 let player_id = PlayerId::new();
 
                                 let future_spawner = AndroidExecutor {
@@ -326,7 +398,7 @@ async fn run(app: AndroidApp) {
                                 };
 
                                 let navigator = ExternalNavigatorBackend::new(
-                                    base_url,
+                                    movie_url.clone(),
                                     None,
                                     None,
                                     future_spawner,
@@ -342,6 +414,7 @@ async fn run(app: AndroidApp) {
                                     id: player_id,
                                     player: PlayerBuilder::new()
                                             .with_renderer(renderer)
+                                            .with_quality(stage_quality_from_int(stage_quality))
                                             .with_audio(AAudioAudioBackend::new().unwrap())
                                             .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
                                             .with_navigator(navigator)
@@ -356,6 +429,21 @@ async fn run(app: AndroidApp) {
 
                                 let player = &playerbox.as_ref().unwrap().player;
                                 let mut player_lock = player.lock().unwrap();
+                                let renderer_info = player_lock.renderer_mut().debug_info();
+                                log::info!(target: "ruffle", "renderer:\n{renderer_info}");
+                                let render_scale =
+                                    with_activity(&app, JavaInterface::get_render_scale).unwrap();
+                                log::info!(target: "ruffle", "render scale: {render_scale:.2}");
+                                if let Some(path) = &perf_log_path {
+                                    if let Ok(mut file) =
+                                        OpenOptions::new().create(true).append(true).open(path)
+                                    {
+                                        let _ = writeln!(
+                                            file,
+                                            "=== renderer ===\n{renderer_info}\nrender_scale={render_scale:.2}"
+                                        );
+                                    }
+                                }
                                 for (font, families) in [
                                     (ruffle_core::font::DefaultFont::Sans, vec!["Roboto", "Noto Sans", "Noto Sans CJK SC"]),
                                     (ruffle_core::font::DefaultFont::Serif, vec!["Noto Serif", "Noto Serif CJK SC", "Noto Sans CJK SC"]),
@@ -383,22 +471,33 @@ async fn run(app: AndroidApp) {
                                 log::info!("MOVIE STARTED");
                             }
                         }
-                        MainEvent::TerminateWindow { .. }  => {
-                            let player = &playerbox.as_ref().unwrap().player;
-                            let mut player_lock = player.lock().unwrap();
-                            player_lock.set_is_playing(false);
+                        MainEvent::TerminateWindow { .. } => {
+                            if let Some(player) = playerbox.as_ref() {
+                                let mut player = player.player.lock().unwrap();
+                                let renderer = <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
+                                    player.renderer_mut(),
+                                ).unwrap();
+                                renderer.suspend_surface();
+                            }
+                            native_window = None;
+                            // Keep ticking: SWF timers and socket responses drive game heartbeats.
                         }
                         MainEvent::InputAvailable => {
                             if let Ok(mut inputs) = app.input_events_iter() {
                                 while inputs.next(|input| match input {
                                     InputEvent::MotionEvent(event) => {
-                                        let window = native_window.as_ref().unwrap();
+                                        let Some(window) = native_window.as_ref() else {
+                                            return InputStatus::Unhandled;
+                                        };
                                         let pointer = event.pointer_index();
                                         let pointer = event.pointer_at_index(pointer);
                                         let coords: (i32, i32) = get_loc_in_window(&app);
                                         let mut x = pointer.x() as f64 - coords.0 as f64;
                                         let mut y = pointer.y() as f64 - coords.1 as f64;
                                         let view_size = get_view_size(&app).unwrap();
+                                        if view_size.0 <= 0 || view_size.1 <= 0 {
+                                            return InputStatus::Unhandled;
+                                        }
                                         x = x * window.width() as f64 / view_size.0 as f64;
                                         y = y * window.height() as f64 / view_size.1 as f64;
                                         let ruffle_event = match event.action() {
@@ -485,65 +584,85 @@ async fn run(app: AndroidApp) {
             },
         );
 
-        match receiver.try_recv() {
-            Err(_) => {}
-            Ok(RuffleEvent::TaskPoll(task)) => {
-                // Only run the task if it matches our current player;
-                // otherwise it is stale, and should be cancelled (which
-                // happens implicitly on drop).
-                if let Some(player) = playerbox.as_ref() {
-                    if *task.0.metadata() == player.id {
-                        task.0.run();
-                    }
-                }
-            }
-            Ok(RuffleEvent::VirtualKeyEvent {
-                down,
-                key_descriptor,
-            }) => {
-                if let Some(player) = playerbox.as_ref() {
-                    let event = if down {
-                        PlayerEvent::KeyDown {
-                            key: key_descriptor,
-                        }
-                    } else {
-                        PlayerEvent::KeyUp {
-                            key: key_descriptor,
-                        }
-                    };
-                    player.player.lock().unwrap().handle_event(event);
+        if quit {
+            break;
+        }
 
-                    if down {
-                        // TODO: Add shift/capslock and pass in uppercase characters accordingly
-                        if let LogicalKey::Character(c) = key_descriptor.logical_key {
-                            let event = PlayerEvent::TextInput { codepoint: c };
-                            player.player.lock().unwrap().handle_event(event);
+        // Drain everything that is already queued. Loader completions arrive as
+        // individual TaskPoll events; handling only one per loop iteration made
+        // item icons appear one frame at a time.
+        let mut processed_events = 0;
+        while processed_events < MAX_EVENTS_PER_ITERATION {
+            let event = match receiver.try_recv() {
+                Ok(event) => event,
+                Err(_) => break,
+            };
+            processed_events += 1;
+
+            match event {
+                RuffleEvent::TaskPoll(task) => {
+                    // Only run the task if it matches our current player;
+                    // otherwise it is stale, and should be cancelled (which
+                    // happens implicitly on drop).
+                    if let Some(player) = playerbox.as_ref() {
+                        if *task.0.metadata() == player.id {
+                            task.0.run();
                         }
                     }
                 }
-            }
-            Ok(RuffleEvent::RunContextMenuCallback(index)) => {
-                if let Some(player) = playerbox.as_ref() {
-                    player
-                        .player
-                        .lock()
-                        .unwrap()
-                        .run_context_menu_callback(index);
+                RuffleEvent::VirtualKeyEvent {
+                    down,
+                    key_descriptor,
+                } => {
+                    if let Some(player) = playerbox.as_ref() {
+                        let event = if down {
+                            PlayerEvent::KeyDown {
+                                key: key_descriptor,
+                            }
+                        } else {
+                            PlayerEvent::KeyUp {
+                                key: key_descriptor,
+                            }
+                        };
+                        player.player.lock().unwrap().handle_event(event);
+
+                        if down {
+                            // TODO: Add shift/capslock and pass in uppercase characters accordingly
+                            if let LogicalKey::Character(c) = key_descriptor.logical_key {
+                                let event = PlayerEvent::TextInput { codepoint: c };
+                                player.player.lock().unwrap().handle_event(event);
+                            }
+                        }
+                    }
                 }
-            }
-            Ok(RuffleEvent::ClearContextMenu) => {
-                if let Some(player) = playerbox.as_ref() {
-                    player.player.lock().unwrap().clear_custom_menu_items();
+                RuffleEvent::RunContextMenuCallback(index) => {
+                    if let Some(player) = playerbox.as_ref() {
+                        player
+                            .player
+                            .lock()
+                            .unwrap()
+                            .run_context_menu_callback(index);
+                    }
                 }
-            }
-            Ok(RuffleEvent::RequestContextMenu) => {
-                if let Some(player) = playerbox.as_ref() {
-                    log::warn!("preparing context menu!");
-                    let items = player.player.lock().unwrap().prepare_context_menu();
-                    with_activity(&app, |env, activity| {
-                        JavaInterface::show_context_menu(env, activity, &items)
-                    })
-                    .unwrap();
+                RuffleEvent::ClearContextMenu => {
+                    if let Some(player) = playerbox.as_ref() {
+                        player.player.lock().unwrap().clear_custom_menu_items();
+                    }
+                }
+                RuffleEvent::RequestContextMenu => {
+                    if let Some(player) = playerbox.as_ref() {
+                        log::warn!("preparing context menu!");
+                        let items = player.player.lock().unwrap().prepare_context_menu();
+                        with_activity(&app, |env, activity| {
+                            JavaInterface::show_context_menu(env, activity, &items)
+                        })
+                        .unwrap();
+                    }
+                }
+                RuffleEvent::SetQuality(quality) => {
+                    if let Some(player) = playerbox.as_ref() {
+                        player.player.lock().unwrap().set_quality(quality);
+                    }
                 }
             }
         }
@@ -554,7 +673,13 @@ async fn run(app: AndroidApp) {
             last_frame_time = new_time;
             if let Some(player) = playerbox.as_ref() {
                 if let Ok(mut player) = player.player.lock() {
+                    let tick_start = Instant::now();
                     player.tick(FloatDuration::from_millis(dt as f64 / 1000.0));
+                    let tick_elapsed = tick_start.elapsed();
+                    perf_ticks += 1;
+                    perf_tick_time += tick_elapsed;
+                    perf_tick_max = perf_tick_max.max(tick_elapsed);
+
                     next_frame_time = Some(new_time + player.time_til_next_frame());
                     needs_redraw = player.needs_render();
                     let audio =
@@ -566,12 +691,89 @@ async fn run(app: AndroidApp) {
             }
         }
 
-        if needs_redraw {
+        if needs_redraw && is_resumed && native_window.is_some() {
             if let Some(player) = playerbox.as_ref() {
                 if let Ok(mut player) = player.player.lock() {
+                    let render_start = Instant::now();
                     player.render();
+                    let render_elapsed = render_start.elapsed();
+                    perf_renders += 1;
+                    perf_render_time += render_elapsed;
+                    perf_render_max = perf_render_max.max(render_elapsed);
+                    if let Some(renderer) = <dyn Any>::downcast_mut::<
+                        WgpuRenderBackend<SwapChainTarget>,
+                    >(player.renderer_mut())
+                    {
+                        last_texture_pool_bytes = renderer.texture_pool_bytes();
+                        let pressure_flushes = renderer.scratch_pressure_flushes();
+                        let pressure_flushes_this_frame =
+                            pressure_flushes.saturating_sub(last_pressure_flushes);
+                        last_pressure_flushes = pressure_flushes;
+                        if perf_renders == 1 || perf_renders % 24 == 0 {
+                            let stats = renderer.bitmap_texture_stats();
+                            last_bitmap_uploaded_bytes = stats.uploaded_bytes;
+                            last_bitmap_target_bytes = stats.target_bytes;
+                            last_bitmap_cache_bytes = stats.cache_bytes;
+                        }
+                        if render_elapsed >= Duration::from_millis(120) {
+                            let (main, _) = renderer.scratch_texture_stats();
+                            let bitmaps = renderer.bitmap_texture_stats();
+                            let slow_line = format!(
+                                "slow-render: {:.1}ms dt={}us tex_pool={:.1}MiB scratch_created={} scratch_created_bytes={:.1}MiB scratch_flushes={} deferred={} fallback={} cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
+                                render_elapsed.as_secs_f64() * 1000.0,
+                                dt,
+                                last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
+                                main.created_textures,
+                                main.created_bytes as f64 / (1024.0 * 1024.0),
+                                pressure_flushes_this_frame,
+                                main.deferred_layers,
+                                main.fallback_layers,
+                                bitmaps.cache_bytes as f64 / (1024.0 * 1024.0),
+                                bitmaps.uploaded_bytes as f64 / (1024.0 * 1024.0),
+                                bitmaps.target_bytes as f64 / (1024.0 * 1024.0),
+                            );
+                            log::info!(target: "ruffle", "{slow_line}");
+                            if let Some(file) = &mut perf_file {
+                                let _ = writeln!(file, "{slow_line}");
+                                let _ = file.flush();
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        if perf_window_start.elapsed() >= Duration::from_secs(1) {
+            let elapsed = perf_window_start.elapsed().as_secs_f64();
+            let tick_avg = perf_tick_time.as_secs_f64() * 1000.0 / f64::from(perf_ticks.max(1));
+            let render_avg =
+                perf_render_time.as_secs_f64() * 1000.0 / f64::from(perf_renders.max(1));
+            let perf_line = format!(
+                "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
+                perf_ticks,
+                perf_renders,
+                f64::from(perf_renders) / elapsed,
+                tick_avg,
+                perf_tick_max.as_secs_f64() * 1000.0,
+                render_avg,
+                perf_render_max.as_secs_f64() * 1000.0,
+                last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_cache_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_uploaded_bytes as f64 / (1024.0 * 1024.0),
+                last_bitmap_target_bytes as f64 / (1024.0 * 1024.0),
+            );
+            log::info!(target: "ruffle", "{perf_line}");
+            if let Some(file) = &mut perf_file {
+                let _ = writeln!(file, "{perf_line}");
+                let _ = file.flush();
+            }
+            perf_window_start = Instant::now();
+            perf_ticks = 0;
+            perf_renders = 0;
+            perf_tick_time = Duration::ZERO;
+            perf_render_time = Duration::ZERO;
+            perf_tick_max = Duration::ZERO;
+            perf_render_max = Duration::ZERO;
         }
     }
 
@@ -702,6 +904,23 @@ pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_clearContextMenu<'local>(
 
 #[no_mangle]
 #[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_setStageQuality<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    quality: jint,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let event_loop: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            event_loop.send(RuffleEvent::SetQuality(stage_quality_from_int(quality)));
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
 pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_nativeInit<'local>(
     mut unowned_env: EnvUnowned<'local>,
     class: JClass<'local>,
@@ -722,7 +941,7 @@ fn native_init(env: &mut Env, class: &JClass, crash_callback: &JObject) -> jni::
             .with_tag("ruffle")
             .with_filter(
                 android_logger::FilterBuilder::new()
-                    .parse("warn,ruffle=info")
+                    .parse("warn,ruffle=info,ruffle_android=info")
                     .build(),
             ),
     );
@@ -754,6 +973,14 @@ fn native_init(env: &mut Env, class: &JClass, crash_callback: &JObject) -> jni::
             ),
         };
         log::error!(target: "panic","{}", full);
+
+        // Persist the panic for devices whose logcat is encrypted.
+        if let Some(path) = PANIC_LOG_PATH.get() {
+            if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+                let _ = writeln!(file, "\n=== PANIC ===\n{full}");
+                let _ = file.flush();
+            }
+        }
 
         // Any exception already pending on this thread is stashed by the attachment while the
         // callback runs, and re-thrown afterwards, so java will still discover it on their own.

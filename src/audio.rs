@@ -5,11 +5,16 @@ use ruffle_core::backend::audio::{
 };
 
 use ruffle_core::impl_audio_mixer_backend;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 pub struct AAudioAudioBackend {
     pub stream: Option<AudioStream>,
     pub mixer: AudioMixer,
     pub paused: bool,
+    backgrounded: Arc<AtomicBool>,
 }
 
 type Error = Box<dyn std::error::Error>;
@@ -22,6 +27,7 @@ impl AAudioAudioBackend {
             stream: None,
             mixer,
             paused: true,
+            backgrounded: Arc::new(AtomicBool::new(false)),
         };
 
         result.recreate_stream()?;
@@ -31,6 +37,7 @@ impl AAudioAudioBackend {
 
     pub fn recreate_stream(&mut self) -> Result<(), Error> {
         let proxy = self.mixer.proxy();
+        let backgrounded = self.backgrounded.clone();
 
         let stream = AudioStreamBuilder::new()?
             .direction(AudioDirection::Output)
@@ -43,6 +50,11 @@ impl AAudioAudioBackend {
                     std::slice::from_raw_parts_mut::<f32>(data as *mut f32, len as usize * 2)
                 };
                 proxy.mix(sl);
+                // Advance stream clocks normally so audio synchronization cannot
+                // stall frame-driven heartbeats, but emit silence while hidden.
+                if backgrounded.load(Ordering::Relaxed) {
+                    sl.fill(0.0);
+                }
                 ndk::audio::AudioCallbackResult::Continue
             }))
             .open_stream()?;
@@ -53,6 +65,10 @@ impl AAudioAudioBackend {
 
         self.stream = Some(stream);
         Ok(())
+    }
+
+    pub fn set_backgrounded(&mut self, backgrounded: bool) {
+        self.backgrounded.store(backgrounded, Ordering::Relaxed);
     }
 
     pub fn recreate_stream_if_needed(&mut self) {
@@ -68,20 +84,20 @@ impl AudioBackend for AAudioAudioBackend {
     impl_audio_mixer_backend!(mixer);
 
     fn play(&mut self) {
-        self.stream
-            .as_mut()
-            .expect("Error trying to resume audio stream.")
-            .request_start()
-            .expect("Error trying to resume audio stream.");
         self.paused = false;
+        if let Some(stream) = self.stream.as_mut() {
+            if let Err(error) = stream.request_start() {
+                log::warn!("Could not resume audio stream: {error}");
+            }
+        }
     }
 
     fn pause(&mut self) {
-        self.stream
-            .as_mut()
-            .expect("Error trying to pause audio stream.")
-            .request_pause()
-            .expect("Error trying to pause audio stream.");
         self.paused = true;
+        if let Some(stream) = self.stream.as_mut() {
+            if let Err(error) = stream.request_pause() {
+                log::warn!("Could not pause audio stream: {error}");
+            }
+        }
     }
 }

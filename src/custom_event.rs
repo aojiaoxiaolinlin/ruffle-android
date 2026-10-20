@@ -1,6 +1,7 @@
 //! Custom event type for Ruffle on Android
 
 use ruffle_core::events::KeyDescriptor;
+use ruffle_render::quality::StageQuality;
 
 use crate::PlayerRunnable;
 
@@ -15,4 +16,5 @@ pub enum RuffleEvent {
     RunContextMenuCallback(usize),
     ClearContextMenu,
     RequestContextMenu,
+    SetQuality(StageQuality),
 }

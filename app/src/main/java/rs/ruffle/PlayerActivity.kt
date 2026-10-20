@@ -1,6 +1,7 @@
 package rs.ruffle
 
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -17,7 +18,13 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.PopupMenu
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -30,6 +37,7 @@ import java.io.IOException
 import kotlin.math.abs
 
 class PlayerActivity : GameActivity() {
+    @Volatile private var playerCrashed = false
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
 
@@ -104,11 +112,35 @@ class PlayerActivity : GameActivity() {
     private val surfaceHeight: Int
         get() = mSurfaceView.height
 
+    @Suppress("unused")
+    // Used by Rust
+    private val stageQuality: Int
+        get() = PlayerSettings.stageQuality(this)
+
+    @Suppress("unused")
+    // Used by Rust
+    private val renderScale: Float
+        get() = PlayerSettings.renderScale(this)
+
+    @Suppress("unused")
+    // Used by Rust
+    private val graphicsBackend: Int
+        get() = PlayerSettings.graphicsBackend(this)
+
+    @Suppress("unused")
+    // Used by Rust; some OEMs encrypt logcat for non-debuggable apps.
+    private val externalFilesDirPath: String?
+        get() = getExternalFilesDir(null)?.absolutePath
+
+    private var appliedSurfaceWidth = 0
+    private var appliedSurfaceHeight = 0
+
     private external fun keydown(keyTag: String)
     private external fun keyup(keyTag: String)
     private external fun requestContextMenu()
     private external fun runContextMenuCallback(index: Int)
     private external fun clearContextMenu()
+    private external fun setStageQuality(quality: Int)
 
     @Suppress("unused")
     // Used by Rust
@@ -187,6 +219,11 @@ class PlayerActivity : GameActivity() {
         parent.removeView(placeholder)
         parent.addView(mSurfaceView, index)
         mSurfaceView.setLayoutParams(pars)
+        mSurfaceView.addOnLayoutChangeListener { _, _, _, right, bottom, _, _, oldRight, oldBottom ->
+            if (right != oldRight || bottom != oldBottom) {
+                applyRenderScale()
+            }
+        }
         val keys = gatherAllDescendantsOfType<Button>(
             layout.getViewById(R.id.keyboard),
             Button::class.java
@@ -211,19 +248,26 @@ class PlayerActivity : GameActivity() {
         }
         layout.findViewById<View>(R.id.button_cm)
             .setOnClickListener { requestContextMenu() }
+        layout.findViewById<View>(R.id.button_settings)
+            .setOnClickListener { showPlayerSettings() }
         installFloatingToolbar(layout)
         layout.requestLayout()
         layout.requestFocus()
         mSurfaceView.holder.addCallback(this)
         ViewCompat.setOnApplyWindowInsetsListener(mSurfaceView, this)
+        mSurfaceView.post { applyRenderScale() }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        hideSystemUI()
         val keyboard = findViewById<View>(R.id.keyboard)
         val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
         keyboard.visibility = if (isLandscape) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.toolbar).post { positionToolbar() }
+        findViewById<View>(R.id.toolbar).post {
+            positionToolbar()
+            applyRenderScale()
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -275,6 +319,7 @@ class PlayerActivity : GameActivity() {
         toolbar.setOnTouchListener(listener)
         layout.findViewById<View>(R.id.button_kb).setOnTouchListener(listener)
         layout.findViewById<View>(R.id.button_cm).setOnTouchListener(listener)
+        layout.findViewById<View>(R.id.button_settings).setOnTouchListener(listener)
         layout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> positionToolbar() }
         toolbar.post { positionToolbar() }
     }
@@ -308,10 +353,168 @@ class PlayerActivity : GameActivity() {
             )
     }
 
+    /**
+     * Render at a fraction of the view's physical size. SurfaceView scales
+     * this buffer to its bounds in hardware, which is much cheaper than
+     * rendering every physical pixel.
+     */
+    private fun applyRenderScale() {
+        val view = mSurfaceView
+        val width = view.width
+        val height = view.height
+        if (width <= 0 || height <= 0) return
+        val scale = PlayerSettings.renderScale(this)
+        val scaledWidth = (width * scale).toInt().coerceAtLeast(1)
+        val scaledHeight = (height * scale).toInt().coerceAtLeast(1)
+        if (scaledWidth == appliedSurfaceWidth && scaledHeight == appliedSurfaceHeight) return
+        appliedSurfaceWidth = scaledWidth
+        appliedSurfaceHeight = scaledHeight
+        view.holder.setFixedSize(scaledWidth, scaledHeight)
+        Log.i("ruffle", "Render scale $scale: ${width}x$height -> ${scaledWidth}x${scaledHeight}")
+    }
+
+    private fun showPlayerSettings() {
+        val scales = floatArrayOf(1.0f, 0.8f, 0.65f, 0.5f)
+        val scaleLabels = arrayOf("100%", "80%", "65%", "50%")
+        val currentScale = PlayerSettings.renderScale(this)
+        var selectedScale = scales.indices.minByOrNull {
+            kotlin.math.abs(scales[it] - currentScale)
+        } ?: 2
+
+        val qualityLabels = arrayOf(
+            getString(R.string.quality_low),
+            getString(R.string.quality_medium),
+            getString(R.string.quality_high)
+        )
+        var selectedQuality = PlayerSettings.stageQuality(this)
+        val previousBackend = PlayerSettings.graphicsBackend(this)
+        var selectedBackend = previousBackend
+
+        val density = resources.displayMetrics.density
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), 0)
+        }
+
+        fun addSectionLabel(text: String) {
+            container.addView(TextView(this).apply {
+                this.text = text
+                setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt())
+            })
+        }
+
+        addSectionLabel(getString(R.string.render_scale))
+        val scaleIds = scales.indices.map { 1000 + it }
+        val scaleGroup = RadioGroup(this)
+        scales.indices.forEach { index ->
+            scaleGroup.addView(RadioButton(this).apply {
+                id = scaleIds[index]
+                text = scaleLabels[index]
+                isChecked = index == selectedScale
+            })
+        }
+        scaleGroup.setOnCheckedChangeListener { _, checkedId ->
+            selectedScale = scaleIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedScale
+        }
+        container.addView(scaleGroup)
+
+        addSectionLabel(getString(R.string.stage_quality))
+        val qualityIds = qualityLabels.indices.map { 2000 + it }
+        val qualityGroup = RadioGroup(this)
+        qualityLabels.indices.forEach { index ->
+            qualityGroup.addView(RadioButton(this).apply {
+                id = qualityIds[index]
+                text = qualityLabels[index]
+                isChecked = index == selectedQuality
+            })
+        }
+        qualityGroup.setOnCheckedChangeListener { _, checkedId ->
+            selectedQuality = qualityIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedQuality
+        }
+        container.addView(qualityGroup)
+
+        addSectionLabel(getString(R.string.graphics_backend))
+        val backendLabels = arrayOf(
+            getString(R.string.backend_gles),
+            getString(R.string.backend_vulkan)
+        )
+        val backendIds = backendLabels.indices.map { 3000 + it }
+        val backendGroup = RadioGroup(this)
+        backendLabels.indices.forEach { index ->
+            backendGroup.addView(RadioButton(this).apply {
+                id = backendIds[index]
+                text = backendLabels[index]
+                isChecked = index == selectedBackend
+            })
+        }
+        backendGroup.setOnCheckedChangeListener { _, checkedId ->
+            selectedBackend = backendIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedBackend
+        }
+        container.addView(backendGroup)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.player_settings)
+            .setView(ScrollView(this).apply { addView(container) })
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                PlayerSettings.setRenderScale(this, scales[selectedScale])
+                // Force a re-apply even if the rounded pixel size is unchanged.
+                appliedSurfaceWidth = 0
+                appliedSurfaceHeight = 0
+                applyRenderScale()
+                PlayerSettings.setStageQuality(this, selectedQuality)
+                setStageQuality(selectedQuality)
+                PlayerSettings.setGraphicsBackend(this, selectedBackend)
+                if (selectedBackend != previousBackend) {
+                    Toast.makeText(this, R.string.backend_reload_hint, Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("toolbarOnRight", toolbarOnRight)
         outState.putFloat("toolbarPosition", toolbarPosition)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onPause() {
+        // Start during the transition from a visible Activity, before background
+        // execution restrictions can freeze the native game/heartbeat loop.
+        if (!isFinishing && !isChangingConfigurations && !playerCrashed) {
+            try {
+                startForegroundService(
+                    Intent(this, GameConnectionService::class.java)
+                        .putExtra("playerIntent", Intent(intent))
+                )
+            } catch (failure: IllegalStateException) {
+                Log.w("ruffle", "Background connection service unavailable", failure)
+            } catch (failure: SecurityException) {
+                Log.w("ruffle", "Background connection service denied", failure)
+            }
+        }
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        stopService(Intent(this, GameConnectionService::class.java))
+        hideSystemUI()
+        // The system may restore bars during the app-switch animation after onResume.
+        window.decorView.post {
+            if (hasWindowFocus()) hideSystemUI()
+            applyRenderScale()
+        }
+    }
+
+    override fun onDestroy() {
+        stopService(Intent(this, GameConnectionService::class.java))
+        super.onDestroy()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemUI()
     }
 
     private fun hideSystemUI() {
@@ -338,6 +541,8 @@ class PlayerActivity : GameActivity() {
         toolbarOnRight = savedInstanceState?.getBoolean("toolbarOnRight") ?: false
         toolbarPosition = savedInstanceState?.getFloat("toolbarPosition", 0.5f) ?: 0.5f
         nativeInit { message ->
+            playerCrashed = true
+            stopService(Intent(this, GameConnectionService::class.java))
             Log.e("ruffle", "Handling panic: $message")
             startActivity(
                 Intent(this, PanicActivity::class.java).apply {
@@ -356,6 +561,7 @@ class PlayerActivity : GameActivity() {
         requestNoStatusBarFeature()
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     // Used by Rust

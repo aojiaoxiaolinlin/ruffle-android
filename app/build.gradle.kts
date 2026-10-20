@@ -24,7 +24,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "rs.ruffle"
+        applicationId = if (project.hasProperty("localBuild")) {
+            "rs.ruffle.local"
+        } else {
+            "rs.ruffle"
+        }
         minSdk = 26
         targetSdk = 35
         versionCode = 261014

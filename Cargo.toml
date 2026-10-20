@@ -16,6 +16,8 @@ crate-type = ["cdylib"]
 
 [profile.release]
 strip = "symbols"
+lto = "thin"
+codegen-units = 1
 
 [dependencies]
 
@@ -33,12 +35,12 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 ndk = { version = "0.9.0", features = ["audio"] }
 
 # Have to follow Ruffle with this.
-wgpu = "30.0.1"
+wgpu = { version = "30.0.1", features = ["vulkan"] }
 
-# Keep all Ruffle crates on the same tested fork revision (Scale9, AVM2 event
-# propagation, and default-font glyph fallback fixes).
-ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6", features = [
+# Keep all Ruffle crates on the Android fork merge: BGM unload cleanup,
+# background surface handling, bounded texture caches, Scale9 and font/event fixes.
+ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499" }
+ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -47,9 +49,10 @@ ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "9
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6" }
-ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "96672e20dc02566a6befd17a3a9cd18d9c773de6", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
+ruffle_render = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499" }
+ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499" }
+ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499" }
+ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "6276473eb53db3a7469318ed538426b77954c499", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
 
 log = "0.4.32"
 
