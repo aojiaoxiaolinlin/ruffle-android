@@ -341,15 +341,20 @@ async fn run(app: AndroidApp) {
                                     .unwrap();
                                 }
                             } else {
-                                let (url, bytes, stage_quality, graphics_backend) = with_activity(&app, |env, activity| {
+                                let (url, bytes, stage_quality, graphics_backend, frame_rate_override) = with_activity(&app, |env, activity| {
                                     (
                                         JavaInterface::get_swf_uri(env, activity),
                                         JavaInterface::get_swf_bytes(env, activity),
                                         JavaInterface::get_stage_quality(env, activity),
                                         JavaInterface::get_graphics_backend(env, activity),
+                                        JavaInterface::get_frame_rate_override(env, activity),
                                     )
                                 })
                                 .unwrap();
+                                // 0 means "follow the SWF"; anything else locks playback to
+                                // that rate (the Android UI caps it at 60 fps).
+                                let frame_rate_override =
+                                    (frame_rate_override > 0).then_some(f64::from(frame_rate_override));
                                 // TODO: make this take an Arc<Window> instead?
                                 let create_renderer = |backends: wgpu::Backends| unsafe {
                                     WgpuRenderBackend::for_window_unsafe(
@@ -415,6 +420,7 @@ async fn run(app: AndroidApp) {
                                     player: PlayerBuilder::new()
                                             .with_renderer(renderer)
                                             .with_quality(stage_quality_from_int(stage_quality))
+                                            .with_frame_rate(frame_rate_override)
                                             .with_audio(AAudioAudioBackend::new().unwrap())
                                             .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
                                             .with_navigator(navigator)
@@ -434,13 +440,14 @@ async fn run(app: AndroidApp) {
                                 let render_scale =
                                     with_activity(&app, JavaInterface::get_render_scale).unwrap();
                                 log::info!(target: "ruffle", "render scale: {render_scale:.2}");
+                                log::info!(target: "ruffle", "frame rate override: {frame_rate_override:?}");
                                 if let Some(path) = &perf_log_path {
                                     if let Ok(mut file) =
                                         OpenOptions::new().create(true).append(true).open(path)
                                     {
                                         let _ = writeln!(
                                             file,
-                                            "=== renderer ===\n{renderer_info}\nrender_scale={render_scale:.2}"
+                                            "=== renderer ===\n{renderer_info}\nrender_scale={render_scale:.2}\nframe_rate_override={frame_rate_override:?}"
                                         );
                                     }
                                 }
@@ -662,6 +669,15 @@ async fn run(app: AndroidApp) {
                 RuffleEvent::SetQuality(quality) => {
                     if let Some(player) = playerbox.as_ref() {
                         player.player.lock().unwrap().set_quality(quality);
+                    }
+                }
+                RuffleEvent::SetFrameRate(frame_rate) => {
+                    if let Some(player) = playerbox.as_ref() {
+                        player
+                            .player
+                            .lock()
+                            .unwrap()
+                            .set_frame_rate_override(frame_rate);
                     }
                 }
             }
@@ -914,6 +930,24 @@ pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_setStageQuality<'local>(
             let event_loop: MutexGuard<EventSender> =
                 unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
             event_loop.send(RuffleEvent::SetQuality(stage_quality_from_int(quality)));
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_setFrameRate<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    frame_rate: jint,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let event_loop: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            let frame_rate = (frame_rate > 0).then_some(f64::from(frame_rate));
+            event_loop.send(RuffleEvent::SetFrameRate(frame_rate));
             Ok(())
         })
         .resolve::<ThrowRuntimeExAndDefault>()

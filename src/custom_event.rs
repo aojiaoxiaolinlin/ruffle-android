@@ -17,4 +17,6 @@ pub enum RuffleEvent {
     ClearContextMenu,
     RequestContextMenu,
     SetQuality(StageQuality),
+    /// Lock playback to a frame rate, or follow the SWF when `None`.
+    SetFrameRate(Option<f64>),
 }

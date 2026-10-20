@@ -24,6 +24,7 @@ pub struct JavaInterface {
     get_stage_quality: JMethodID,
     get_render_scale: JMethodID,
     get_graphics_backend: JMethodID,
+    get_frame_rate_override: JMethodID,
     get_external_files_dir_path: JMethodID,
 }
 
@@ -197,6 +198,21 @@ impl JavaInterface {
             .unwrap()
     }
 
+    pub fn get_frame_rate_override(env: &mut Env, this: &JObject) -> i32 {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_frame_rate_override,
+                ReturnType::Primitive(Primitive::Int),
+                &[],
+            )
+        };
+        result
+            .expect("getFrameRateOverride() must never throw")
+            .i()
+            .unwrap()
+    }
+
     pub fn get_external_files_dir_path(env: &mut Env, this: &JObject) -> Option<PathBuf> {
         let result = unsafe {
             env.call_method_unchecked(
@@ -299,6 +315,13 @@ impl JavaInterface {
             get_graphics_backend: env
                 .get_method_id(class, jni_str!("getGraphicsBackend"), jni_sig!("()I"))
                 .expect("getGraphicsBackend must exist"),
+            get_frame_rate_override: env
+                .get_method_id(
+                    class,
+                    jni_str!("getFrameRateOverride"),
+                    jni_sig!("()I"),
+                )
+                .expect("getFrameRateOverride must exist"),
             get_external_files_dir_path: env
                 .get_method_id(
                     class,

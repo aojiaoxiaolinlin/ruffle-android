@@ -405,11 +405,10 @@
 
     <LinearLayout
         android:id="@+id/toolbar"
-        android:layout_width="48dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:alpha="0.75"
-        android:background="@drawable/floating_toolbar"
+        android:alpha="0.95"
         android:elevation="8dp"
         android:orientation="vertical"
         app:layout_constraintTop_toTopOf="@id/placeholder"
@@ -417,41 +416,79 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <Button
-            android:id="@+id/button_kb"
+            android:id="@+id/button_menu"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/toggle_keyboard"
-            android:textColor="#FFFFFF"
-            android:tag="kb"
-            android:text="⌨" />
-
-        <Button
-            android:id="@+id/button_cm"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/floating_fab"
             android:contentDescription="@string/player_menu"
-            android:textColor="#FFFFFF"
-            android:checkable="true"
-            android:tag="cm"
-            android:text="▤" />
-
-        <Button
-            android:id="@+id/button_settings"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:elevation="4dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/player_settings"
+            android:text="☰"
             android:textColor="#FFFFFF"
-            android:tag="settings"
-            android:text="⚙" />
+            android:textSize="20sp" />
+
+        <LinearLayout
+            android:id="@+id/menu_actions"
+            android:layout_width="48dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/floating_toolbar"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/button_kb"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/toggle_keyboard"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:tag="kb"
+                android:text="⌨"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp" />
+
+            <Button
+                android:id="@+id/button_cm"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/player_menu"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:tag="cm"
+                android:text="▤"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp" />
+
+            <Button
+                android:id="@+id/button_reload"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/reload_movie"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="↻"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp" />
+
+            <Button
+                android:id="@+id/button_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/player_settings"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:tag="settings"
+                android:text="⚙"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

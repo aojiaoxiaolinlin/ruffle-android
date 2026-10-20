@@ -2,8 +2,12 @@
     <string name="app_name">Ruffle</string>
     <string name="toggle_keyboard">Show or hide keyboard</string>
     <string name="player_menu">Player menu</string>
+    <string name="close_player_menu">Close player menu</string>
     <string name="player_settings">Player settings</string>
     <string name="render_scale">Render resolution</string>
+    <string name="frame_rate">Playback frame rate</string>
+    <string name="frame_rate_auto">Follow SWF (auto)</string>
+    <string name="frame_rate_hint">Overrides the movie frame rate. Higher values make playback run faster.</string>
     <string name="stage_quality">Stage quality</string>
     <string name="quality_low">Smooth (no anti-aliasing)</string>
     <string name="quality_medium">Balanced (2x MSAA)</string>

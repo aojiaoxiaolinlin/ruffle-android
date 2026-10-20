@@ -40,6 +40,7 @@ class PlayerActivity : GameActivity() {
     @Volatile private var playerCrashed = false
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
+    private var menuExpanded = false
 
     @Suppress("unused")
     // Used by Rust
@@ -128,6 +129,11 @@ class PlayerActivity : GameActivity() {
         get() = PlayerSettings.graphicsBackend(this)
 
     @Suppress("unused")
+    // Used by Rust; 0 follows the SWF, otherwise frames per second.
+    private val frameRateOverride: Int
+        get() = PlayerSettings.frameRate(this)
+
+    @Suppress("unused")
     // Used by Rust; some OEMs encrypt logcat for non-debuggable apps.
     private val externalFilesDirPath: String?
         get() = getExternalFilesDir(null)?.absolutePath
@@ -141,12 +147,13 @@ class PlayerActivity : GameActivity() {
     private external fun runContextMenuCallback(index: Int)
     private external fun clearContextMenu()
     private external fun setStageQuality(quality: Int)
+    private external fun setFrameRate(frameRate: Int)
 
     @Suppress("unused")
     // Used by Rust
     private fun showContextMenu(items: Array<String>) {
         runOnUiThread {
-            val popup = PopupMenu(this, findViewById(R.id.button_cm))
+            val popup = PopupMenu(this, findViewById(R.id.button_menu))
             val menu = popup.menu
             if (Build.VERSION.SDK_INT >= VERSION_CODES.P) {
                 menu.setGroupDividerEnabled(true)
@@ -237,7 +244,11 @@ class PlayerActivity : GameActivity() {
                 false
             }
         }
+        layout.findViewById<View>(R.id.button_menu).setOnClickListener {
+            setMenuExpanded(!menuExpanded)
+        }
         layout.findViewById<View>(R.id.button_kb).setOnClickListener {
+            setMenuExpanded(false)
             val keyboard = layout.getViewById(R.id.keyboard)
             if (keyboard.visibility == View.VISIBLE) {
                 keyboard.visibility = View.GONE
@@ -246,10 +257,19 @@ class PlayerActivity : GameActivity() {
             }
             layout.post { positionToolbar() }
         }
-        layout.findViewById<View>(R.id.button_cm)
-            .setOnClickListener { requestContextMenu() }
-        layout.findViewById<View>(R.id.button_settings)
-            .setOnClickListener { showPlayerSettings() }
+        layout.findViewById<View>(R.id.button_cm).setOnClickListener {
+            setMenuExpanded(false)
+            requestContextMenu()
+        }
+        layout.findViewById<View>(R.id.button_reload).setOnClickListener {
+            setMenuExpanded(false)
+            // Retain the source URI, grants and launch options in the Intent.
+            recreate()
+        }
+        layout.findViewById<View>(R.id.button_settings).setOnClickListener {
+            setMenuExpanded(false)
+            showPlayerSettings()
+        }
         installFloatingToolbar(layout)
         layout.requestLayout()
         layout.requestFocus()
@@ -316,12 +336,38 @@ class PlayerActivity : GameActivity() {
                 else -> false
             }
         }
-        toolbar.setOnTouchListener(listener)
-        layout.findViewById<View>(R.id.button_kb).setOnTouchListener(listener)
-        layout.findViewById<View>(R.id.button_cm).setOnTouchListener(listener)
-        layout.findViewById<View>(R.id.button_settings).setOnTouchListener(listener)
+        layout.findViewById<View>(R.id.button_menu).setOnTouchListener(listener)
         layout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> positionToolbar() }
         toolbar.post { positionToolbar() }
+    }
+
+    /** Expand or collapse the side-docked action menu. */
+    private fun setMenuExpanded(expanded: Boolean) {
+        if (menuExpanded == expanded) return
+        menuExpanded = expanded
+        val actions = findViewById<View>(R.id.menu_actions)
+        val toggle = findViewById<Button>(R.id.button_menu)
+        toggle.text = if (expanded) "✕" else "☰"
+        toggle.contentDescription = getString(
+            if (expanded) R.string.close_player_menu else R.string.player_menu
+        )
+        val offset = 8 * resources.displayMetrics.density
+        actions.animate().cancel()
+        if (expanded) {
+            actions.visibility = View.VISIBLE
+            actions.alpha = 0f
+            actions.translationY = -offset
+            actions.animate().alpha(1f).translationY(0f).setDuration(140).start()
+            actions.post { positionToolbar() }
+        } else {
+            actions.animate().alpha(0f).translationY(-offset).setDuration(120)
+                .withEndAction {
+                    actions.visibility = View.GONE
+                    actions.translationY = 0f
+                    positionToolbar()
+                }
+                .start()
+        }
     }
 
     private fun positionToolbar() {
@@ -387,6 +433,11 @@ class PlayerActivity : GameActivity() {
             getString(R.string.quality_high)
         )
         var selectedQuality = PlayerSettings.stageQuality(this)
+        val frameRates = intArrayOf(
+            PlayerSettings.FRAME_RATE_AUTO, 24, 30, 45, PlayerSettings.MAX_FRAME_RATE
+        )
+        val currentFrameRate = PlayerSettings.frameRate(this)
+        var selectedFrameRate = frameRates.indexOf(currentFrameRate).takeIf { it >= 0 } ?: 0
         val previousBackend = PlayerSettings.graphicsBackend(this)
         var selectedBackend = previousBackend
 
@@ -433,6 +484,34 @@ class PlayerActivity : GameActivity() {
         }
         container.addView(qualityGroup)
 
+        addSectionLabel(getString(R.string.frame_rate))
+        val frameRateLabels = frameRates.map { rate ->
+            if (rate == PlayerSettings.FRAME_RATE_AUTO) {
+                getString(R.string.frame_rate_auto)
+            } else {
+                "$rate fps"
+            }
+        }
+        val frameRateIds = frameRates.indices.map { 4000 + it }
+        val frameRateGroup = RadioGroup(this)
+        frameRateLabels.forEachIndexed { index, label ->
+            frameRateGroup.addView(RadioButton(this).apply {
+                id = frameRateIds[index]
+                text = label
+                isChecked = index == selectedFrameRate
+            })
+        }
+        frameRateGroup.setOnCheckedChangeListener { _, checkedId ->
+            selectedFrameRate =
+                frameRateIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedFrameRate
+        }
+        container.addView(frameRateGroup)
+        container.addView(TextView(this).apply {
+            text = getString(R.string.frame_rate_hint)
+            textSize = 12f
+            alpha = 0.7f
+        })
+
         addSectionLabel(getString(R.string.graphics_backend))
         val backendLabels = arrayOf(
             getString(R.string.backend_gles),
@@ -463,6 +542,9 @@ class PlayerActivity : GameActivity() {
                 applyRenderScale()
                 PlayerSettings.setStageQuality(this, selectedQuality)
                 setStageQuality(selectedQuality)
+                val frameRate = frameRates[selectedFrameRate]
+                PlayerSettings.setFrameRate(this, frameRate)
+                setFrameRate(frameRate)
                 PlayerSettings.setGraphicsBackend(this, selectedBackend)
                 if (selectedBackend != previousBackend) {
                     Toast.makeText(this, R.string.backend_reload_hint, Toast.LENGTH_SHORT).show()

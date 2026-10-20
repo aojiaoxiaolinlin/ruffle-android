@@ -13,6 +13,7 @@ internal object PlayerSettings {
     private const val KEY_RENDER_SCALE = "render_scale"
     private const val KEY_STAGE_QUALITY = "stage_quality"
     private const val KEY_GRAPHICS_BACKEND = "graphics_backend"
+    private const val KEY_FRAME_RATE = "frame_rate"
 
     const val QUALITY_LOW = 0
     const val QUALITY_MEDIUM = 1
@@ -20,6 +21,10 @@ internal object PlayerSettings {
 
     const val BACKEND_GLES = 0
     const val BACKEND_VULKAN = 1
+
+    /** Follow the SWF's own frame rate. */
+    const val FRAME_RATE_AUTO = 0
+    const val MAX_FRAME_RATE = 60
 
     const val DEFAULT_RENDER_SCALE = 0.65f
     private const val MIN_RENDER_SCALE = 0.4f
@@ -51,6 +56,20 @@ internal object PlayerSettings {
     fun setGraphicsBackend(context: Context, backend: Int) {
         prefs(context).edit()
             .putInt(KEY_GRAPHICS_BACKEND, backend.coerceIn(BACKEND_GLES, BACKEND_VULKAN))
+            .apply()
+    }
+
+    /**
+     * Playback frame rate override. [FRAME_RATE_AUTO] follows the SWF;
+     * any other value locks playback to that many frames per second.
+     */
+    fun frameRate(context: Context): Int =
+        prefs(context).getInt(KEY_FRAME_RATE, FRAME_RATE_AUTO)
+            .coerceIn(FRAME_RATE_AUTO, MAX_FRAME_RATE)
+
+    fun setFrameRate(context: Context, frameRate: Int) {
+        prefs(context).edit()
+            .putInt(KEY_FRAME_RATE, frameRate.coerceIn(FRAME_RATE_AUTO, MAX_FRAME_RATE))
             .apply()
     }
 
