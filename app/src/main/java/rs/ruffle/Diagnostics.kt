@@ -65,9 +65,10 @@ internal object Diagnostics {
         val text = buildString {
             appendLine("=== JAVA CRASH ===")
             appendLine("time: ${timestamp()}")
-            append(deviceInfo(context))
             appendLine("thread: ${thread.name}")
             appendLine(stack.toString())
+            appendLine("--- device ---")
+            append(deviceInfo(context))
             appendLine("--- perf.log tail ---")
             appendLine(tail(File(storageDir(context), PERF_LOG), 24_000))
         }
