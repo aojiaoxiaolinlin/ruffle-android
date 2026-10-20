@@ -335,6 +335,9 @@ class PlayerActivity : GameActivity() {
                             toolbar.x + toolbar.width / 2f > layout.width / 2f
                         toolbarPosition =
                             (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        // Over a SurfaceView the moved view is not always
+                        // redrawn at its new position until it is invalidated.
+                        toolbar.invalidate()
                     }
                     true
                 }
@@ -422,6 +425,10 @@ class PlayerActivity : GameActivity() {
             limits[1].toFloat(),
             limits[3].toFloat()
         )
+        // SurfaceView content is composited in a separate layer. Repaint both
+        // the view and its parent so the new position is actually presented.
+        toolbar.invalidate()
+        parent.invalidate()
     }
 
     /**
