@@ -315,8 +315,26 @@ class PlayerActivity : GameActivity() {
                         view.isPressed = false
                     }
                     if (dragging) {
-                        toolbar.x = toolbarX + event.rawX - startX
-                        toolbar.y = toolbarY + event.rawY - startY
+                        val desiredX = toolbarX + event.rawX - startX
+                        val desiredY = toolbarY + event.rawY - startY
+                        val limits = toolbarLimits(toolbar)
+                        if (limits != null) {
+                            // Keep the button inside the visible area while it is
+                            // being dragged; otherwise the parent clips it.
+                            toolbar.x = desiredX.coerceIn(
+                                limits[0].toFloat(), limits[2].toFloat()
+                            )
+                            toolbar.y = desiredY.coerceIn(
+                                limits[1].toFloat(), limits[3].toFloat()
+                            )
+                        } else {
+                            toolbar.x = desiredX
+                            toolbar.y = desiredY
+                        }
+                        toolbarOnRight =
+                            toolbar.x + toolbar.width / 2f > layout.width / 2f
+                        toolbarPosition =
+                            (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                     }
                     true
                 }
@@ -369,33 +387,41 @@ class PlayerActivity : GameActivity() {
         }
     }
 
-    private fun positionToolbar() {
-        val toolbar = findViewById<View>(R.id.toolbar)
-        val parent = toolbar.parent as View
-        if (parent.width == 0 || toolbar.height == 0) return
+    /**
+     * Returns the visible bounds for the toolbar's top-left corner as
+     * `[left, top, maxX, maxY]`, excluding system bars, cutouts and the
+     * keyboard. Returns null until the toolbar has been laid out.
+     */
+    private fun toolbarLimits(toolbar: View): IntArray? {
+        val parent = toolbar.parent as? View ?: return null
+        if (parent.width == 0 || toolbar.height == 0) return null
         val insets = ViewCompat.getRootWindowInsets(parent)?.getInsets(
             WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
         )
-        val margin = 8 * resources.displayMetrics.density
+        val margin = (8 * resources.displayMetrics.density).toInt()
         val left = (insets?.left ?: 0) + margin
-        val right = (parent.width - (insets?.right ?: 0) - toolbar.width - margin).coerceAtLeast(
-            left
-        )
+        val maxX = (parent.width - (insets?.right ?: 0) - toolbar.width - margin)
+            .coerceAtLeast(left)
         val top = (insets?.top ?: 0) + margin
         val keyboard = findViewById<View>(R.id.keyboard)
-        val bottom = if (keyboard.visibility ==
-            View.VISIBLE
-        ) {
+        val bottomEdge = if (keyboard.visibility == View.VISIBLE) {
             keyboard.top
         } else {
             parent.height - (insets?.bottom ?: 0)
         }
-        toolbar.x = if (toolbarOnRight) right else left
-        toolbar.y =
-            (toolbarPosition * parent.height).coerceIn(
-                top,
-                (bottom - toolbar.height - margin).coerceAtLeast(top)
-            )
+        val maxY = (bottomEdge - toolbar.height - margin).coerceAtLeast(top)
+        return intArrayOf(left, top, maxX, maxY)
+    }
+
+    private fun positionToolbar() {
+        val toolbar = findViewById<View>(R.id.toolbar)
+        val parent = toolbar.parent as? View ?: return
+        val limits = toolbarLimits(toolbar) ?: return
+        toolbar.x = (if (toolbarOnRight) limits[2] else limits[0]).toFloat()
+        toolbar.y = (toolbarPosition * parent.height).coerceIn(
+            limits[1].toFloat(),
+            limits[3].toFloat()
+        )
     }
 
     /**
