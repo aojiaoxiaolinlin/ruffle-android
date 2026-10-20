@@ -10,6 +10,8 @@
     <string name="frame_rate_auto">跟随 SWF（自动）</string>
     <string name="frame_rate_auto_short">自动</string>
     <string name="frame_rate_hint">覆盖 SWF 的原始帧率，数值越高播放越快。</string>
+    <string name="soft_filter_scale">发光/阴影模糊分辨率</string>
+    <string name="soft_filter_hint">降低模糊分辨率可减少特效显存与渲染开销，原图保持清晰。</string>
     <string name="stage_quality">画质</string>
     <string name="quality_low">流畅（关闭抗锯齿）</string>
     <string name="quality_medium">均衡（2x MSAA）</string>

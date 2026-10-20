@@ -25,6 +25,7 @@ pub struct JavaInterface {
     get_render_scale: JMethodID,
     get_graphics_backend: JMethodID,
     get_frame_rate_override: JMethodID,
+    get_soft_filter_scale: JMethodID,
     get_external_files_dir_path: JMethodID,
 }
 
@@ -213,6 +214,21 @@ impl JavaInterface {
             .unwrap()
     }
 
+    pub fn get_soft_filter_scale(env: &mut Env, this: &JObject) -> i32 {
+        let result = unsafe {
+            env.call_method_unchecked(
+                this,
+                Self::get().get_soft_filter_scale,
+                ReturnType::Primitive(Primitive::Int),
+                &[],
+            )
+        };
+        result
+            .expect("getSoftFilterScale() must never throw")
+            .i()
+            .unwrap()
+    }
+
     pub fn get_external_files_dir_path(env: &mut Env, this: &JObject) -> Option<PathBuf> {
         let result = unsafe {
             env.call_method_unchecked(
@@ -322,6 +338,13 @@ impl JavaInterface {
                     jni_sig!("()I"),
                 )
                 .expect("getFrameRateOverride must exist"),
+            get_soft_filter_scale: env
+                .get_method_id(
+                    class,
+                    jni_str!("getSoftFilterScale"),
+                    jni_sig!("()I"),
+                )
+                .expect("getSoftFilterScale must exist"),
             get_external_files_dir_path: env
                 .get_method_id(
                     class,

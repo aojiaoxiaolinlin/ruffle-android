@@ -345,13 +345,14 @@ async fn run(app: AndroidApp) {
                                     .unwrap();
                                 }
                             } else {
-                                let (url, bytes, stage_quality, graphics_backend, frame_rate_override) = with_activity(&app, |env, activity| {
+                                let (url, bytes, stage_quality, graphics_backend, frame_rate_override, soft_filter_scale) = with_activity(&app, |env, activity| {
                                     (
                                         JavaInterface::get_swf_uri(env, activity),
                                         JavaInterface::get_swf_bytes(env, activity),
                                         JavaInterface::get_stage_quality(env, activity),
                                         JavaInterface::get_graphics_backend(env, activity),
                                         JavaInterface::get_frame_rate_override(env, activity),
+                                        JavaInterface::get_soft_filter_scale(env, activity),
                                     )
                                 })
                                 .unwrap();
@@ -398,6 +399,17 @@ async fn run(app: AndroidApp) {
                                     log::info!("Using wgpu GLES backend");
                                     create_renderer(wgpu::Backends::GL).unwrap()
                                 };
+                                let soft_filter_scale = soft_filter_scale as u32;
+                                if !renderer.set_soft_filter_scale(soft_filter_scale) {
+                                    log::warn!(
+                                        "Invalid soft filter scale {soft_filter_scale}; using 100%"
+                                    );
+                                    let _ = renderer.set_soft_filter_scale(100);
+                                }
+                                log::info!(
+                                    target: "ruffle",
+                                    "soft filter scale: {soft_filter_scale}%"
+                                );
                                 let movie_url = Url::parse(&url).unwrap();
                                 let player_id = PlayerId::new();
 
@@ -451,7 +463,7 @@ async fn run(app: AndroidApp) {
                                     {
                                         let _ = writeln!(
                                             file,
-                                            "=== renderer ===\n{renderer_info}\nrender_scale={render_scale:.2}\nframe_rate_override={frame_rate_override:?}"
+                                            "=== renderer ===\n{renderer_info}\nrender_scale={render_scale:.2}\nframe_rate_override={frame_rate_override:?}\nsoft_filter_scale={soft_filter_scale}%"
                                         );
                                     }
                                 }
@@ -682,6 +694,20 @@ async fn run(app: AndroidApp) {
                             .lock()
                             .unwrap()
                             .set_frame_rate_override(frame_rate);
+                    }
+                }
+                RuffleEvent::SetSoftFilterScale(percent) => {
+                    if let Some(player) = playerbox.as_ref() {
+                        let mut player = player.player.lock().unwrap();
+                        if let Some(renderer) =
+                            <dyn Any>::downcast_mut::<WgpuRenderBackend<SwapChainTarget>>(
+                                player.renderer_mut(),
+                            )
+                        {
+                            if !renderer.set_soft_filter_scale(percent) {
+                                log::warn!("Invalid soft filter scale {percent}%");
+                            }
+                        }
                     }
                 }
             }
@@ -952,6 +978,23 @@ pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_setFrameRate<'local>(
                 unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
             let frame_rate = (frame_rate > 0).then_some(f64::from(frame_rate));
             event_loop.send(RuffleEvent::SetFrameRate(frame_rate));
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_setSoftFilterScale<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    percent: jint,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let event_loop: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            event_loop.send(RuffleEvent::SetSoftFilterScale(percent as u32));
             Ok(())
         })
         .resolve::<ThrowRuntimeExAndDefault>()

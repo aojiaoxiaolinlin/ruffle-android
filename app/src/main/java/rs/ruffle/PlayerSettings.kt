@@ -14,6 +14,7 @@ internal object PlayerSettings {
     private const val KEY_STAGE_QUALITY = "stage_quality"
     private const val KEY_GRAPHICS_BACKEND = "graphics_backend"
     private const val KEY_FRAME_RATE = "frame_rate"
+    private const val KEY_SOFT_FILTER_SCALE = "soft_filter_scale"
 
     const val QUALITY_LOW = 0
     const val QUALITY_MEDIUM = 1
@@ -25,6 +26,10 @@ internal object PlayerSettings {
     /** Follow the SWF's own frame rate. */
     const val FRAME_RATE_AUTO = 0
     const val MAX_FRAME_RATE = 60
+
+    /** Glow/drop-shadow blur branch resolution; 50, 75 or 100 percent. */
+    const val DEFAULT_SOFT_FILTER_SCALE = 75
+    private val SOFT_FILTER_SCALES = intArrayOf(50, 75, 100)
 
     const val DEFAULT_RENDER_SCALE = 0.65f
     private const val MIN_RENDER_SCALE = 0.4f
@@ -70,6 +75,18 @@ internal object PlayerSettings {
     fun setFrameRate(context: Context, frameRate: Int) {
         prefs(context).edit()
             .putInt(KEY_FRAME_RATE, frameRate.coerceIn(FRAME_RATE_AUTO, MAX_FRAME_RATE))
+            .apply()
+    }
+
+    fun softFilterScale(context: Context): Int {
+        val value = prefs(context).getInt(KEY_SOFT_FILTER_SCALE, DEFAULT_SOFT_FILTER_SCALE)
+        return if (value in SOFT_FILTER_SCALES) value else DEFAULT_SOFT_FILTER_SCALE
+    }
+
+    fun setSoftFilterScale(context: Context, percent: Int) {
+        val value = if (percent in SOFT_FILTER_SCALES) percent else DEFAULT_SOFT_FILTER_SCALE
+        prefs(context).edit()
+            .putInt(KEY_SOFT_FILTER_SCALE, value)
             .apply()
     }
 

@@ -17,6 +17,8 @@
     <string name="settings_cancel">Cancel</string>
     <string name="settings_apply">Apply</string>
     <string name="close_player_settings">Close settings</string>
+    <string name="soft_filter_scale">Glow/shadow blur resolution</string>
+    <string name="soft_filter_hint">Lower blur resolution reduces effect memory and rendering cost; the source images stay sharp.</string>
     <string name="stage_quality">Stage quality</string>
     <string name="quality_low">Smooth (no anti-aliasing)</string>
     <string name="quality_medium">Balanced (2x MSAA)</string>

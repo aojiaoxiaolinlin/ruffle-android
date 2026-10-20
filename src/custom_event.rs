@@ -19,4 +19,6 @@ pub enum RuffleEvent {
     SetQuality(StageQuality),
     /// Lock playback to a frame rate, or follow the SWF when `None`.
     SetFrameRate(Option<f64>),
+    /// Glow/drop-shadow blur branch resolution: 50, 75 or 100 percent.
+    SetSoftFilterScale(u32),
 }

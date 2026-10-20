@@ -140,6 +140,11 @@ class PlayerActivity : GameActivity() {
         get() = PlayerSettings.frameRate(this)
 
     @Suppress("unused")
+    // Used by Rust; 50, 75 or 100 percent.
+    private val softFilterScale: Int
+        get() = PlayerSettings.softFilterScale(this)
+
+    @Suppress("unused")
     // Used by Rust; some OEMs encrypt logcat for non-debuggable apps.
     private val externalFilesDirPath: String?
         get() = getExternalFilesDir(null)?.absolutePath
@@ -154,6 +159,7 @@ class PlayerActivity : GameActivity() {
     private external fun clearContextMenu()
     private external fun setStageQuality(quality: Int)
     private external fun setFrameRate(frameRate: Int)
+    private external fun setSoftFilterScale(percent: Int)
 
     @Suppress("unused")
     // Used by Rust
@@ -481,6 +487,11 @@ class PlayerActivity : GameActivity() {
         )
         var selectedQuality = PlayerSettings.stageQuality(this)
 
+        val softFilterScales = intArrayOf(100, 75, 50)
+        val softFilterLabels = listOf("100%", "75%", "50%")
+        var selectedSoftFilterScale =
+            softFilterScales.indexOf(PlayerSettings.softFilterScale(this)).takeIf { it >= 0 } ?: 1
+
         val frameRates = intArrayOf(
             PlayerSettings.FRAME_RATE_AUTO, 24, 30, 45, PlayerSettings.MAX_FRAME_RATE
         )
@@ -620,6 +631,10 @@ class PlayerActivity : GameActivity() {
                 left, getString(R.string.stage_quality), qualityLabels, selectedQuality
             ) { selectedQuality = it }
             addSection(
+                left, getString(R.string.soft_filter_scale), softFilterLabels,
+                selectedSoftFilterScale, getString(R.string.soft_filter_hint)
+            ) { selectedSoftFilterScale = it }
+            addSection(
                 right, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
                 getString(R.string.frame_rate_hint)
             ) { selectedFrameRate = it }
@@ -634,6 +649,10 @@ class PlayerActivity : GameActivity() {
             addSection(
                 content, getString(R.string.stage_quality), qualityLabels, selectedQuality
             ) { selectedQuality = it }
+            addSection(
+                content, getString(R.string.soft_filter_scale), softFilterLabels,
+                selectedSoftFilterScale, getString(R.string.soft_filter_hint)
+            ) { selectedSoftFilterScale = it }
             addSection(
                 content, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
                 getString(R.string.frame_rate_hint)
@@ -750,6 +769,9 @@ class PlayerActivity : GameActivity() {
                 val frameRate = frameRates[selectedFrameRate]
                 PlayerSettings.setFrameRate(this@PlayerActivity, frameRate)
                 setFrameRate(frameRate)
+                val softFilterScale = softFilterScales[selectedSoftFilterScale]
+                PlayerSettings.setSoftFilterScale(this@PlayerActivity, softFilterScale)
+                setSoftFilterScale(softFilterScale)
                 PlayerSettings.setGraphicsBackend(this@PlayerActivity, selectedBackend)
                 if (selectedBackend != previousBackend) {
                     Toast.makeText(
