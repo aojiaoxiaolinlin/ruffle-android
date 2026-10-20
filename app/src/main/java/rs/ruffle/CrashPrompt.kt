@@ -63,17 +63,11 @@ fun CrashPrompt() {
                 Text(stringResource(R.string.crash_prompt_body))
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    crash.summary.take(700),
+                    crash.summary.take(400),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     color = PromptSecondary,
                     modifier = Modifier.padding(top = 2.dp)
-                )
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    stringResource(R.string.crash_privacy_hint),
-                    fontSize = 11.sp,
-                    color = PromptSecondary.copy(alpha = 0.7f)
                 )
             }
         },
