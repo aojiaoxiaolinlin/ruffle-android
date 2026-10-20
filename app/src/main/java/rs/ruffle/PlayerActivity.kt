@@ -83,6 +83,11 @@ class PlayerActivity : GameActivity() {
         get() = intent.getStringExtra("baseUrl")
 
     @Suppress("unused")
+    // Used by Rust; never put this value in the SWF URL or logs.
+    private val authString: String?
+        get() = intent.getStringExtra("authString")
+
+    @Suppress("unused")
     // Used by Rust
     private val traceOutput: String?
         get() {

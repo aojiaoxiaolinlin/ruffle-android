@@ -20,20 +20,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             RuffleTheme {
                 Box(Modifier.fillMaxSize()) {
-                    RuffleNavHost(openSwf = { uri, baseUrl -> openSwf(uri, baseUrl) })
+                    KabuLoginScreen { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
                     CrashPrompt()
                 }
             }
         }
     }
 
-    private fun openSwf(uri: Uri, baseUrl: String?) {
+    private fun openSwf(uri: Uri, baseUrl: String?, auth: String) {
         val intent = Intent(
             this@MainActivity,
             PlayerActivity::class.java
         ).apply {
             data = uri
             putExtra("baseUrl", baseUrl)
+            putExtra("authString", auth)
         }
         startActivity(intent)
     }

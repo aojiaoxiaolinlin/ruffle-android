@@ -24,10 +24,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        // Local builds use a separate id so they can coexist with the
+        // CI-signed release and keep using different signing keys.
         applicationId = if (project.hasProperty("localBuild")) {
-            "rs.ruffle.local"
+            "rs.ruffle.kabu.local"
         } else {
-            "rs.ruffle"
+            "rs.ruffle.kabu"
         }
         minSdk = 26
         targetSdk = 35
@@ -78,6 +80,18 @@ android {
     buildFeatures {
         compose = true
         prefab = true
+    }
+
+    sourceSets {
+        getByName("test").java.srcDir("src/sharedTest/java")
+        getByName("androidTest").java.srcDir("src/sharedTest/java")
+    }
+
+    testOptions {
+        unitTests.all {
+            // OpenJDK restricts Origin; Android's HTTP implementation allows it.
+            it.systemProperty("sun.net.http.allowRestrictedHeaders", "true")
+        }
     }
 
     packaging {
