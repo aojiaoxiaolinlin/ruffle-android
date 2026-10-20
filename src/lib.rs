@@ -205,10 +205,14 @@ async fn run(app: AndroidApp) {
     // apps, so mirror the same diagnostics into a file adb can pull.
     let perf_log_path = external_files_dir.map(|dir| dir.join("perf.log"));
     if let Some(path) = &perf_log_path {
+        // Keep the previous session so a crash that killed the process can
+        // still be inspected from the settings' "share diagnostics" action.
+        let previous = path.with_file_name("perf-previous.log");
+        let _ = std::fs::remove_file(&previous);
+        let _ = std::fs::rename(path, &previous);
         let _ = PANIC_LOG_PATH.set(path.clone());
     }
     let mut perf_file = perf_log_path.as_ref().and_then(|path| {
-        let _ = std::fs::write(path, b"");
         OpenOptions::new().create(true).append(true).open(path).ok()
     });
 
@@ -1008,8 +1012,11 @@ fn native_init(env: &mut Env, class: &JClass, crash_callback: &JObject) -> jni::
         };
         log::error!(target: "panic","{}", full);
 
-        // Persist the panic for devices whose logcat is encrypted.
+        // Persist the panic for devices whose logcat is encrypted. A dedicated
+        // crash file lets the next launch offer to share it.
         if let Some(path) = PANIC_LOG_PATH.get() {
+            let crash_path = path.with_file_name("crash-rust.log");
+            let _ = std::fs::write(&crash_path, format!("=== RUST PANIC ===\n{full}\n"));
             if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
                 let _ = writeln!(file, "\n=== PANIC ===\n{full}");
                 let _ = file.flush();

@@ -629,6 +629,71 @@ class PlayerActivity : GameActivity() {
             ) { selectedBackend = it }
         }
 
+        content.addView(TextView(this).apply {
+            text = getString(R.string.diagnostics)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFFE8C68E.toInt())
+            letterSpacing = 0.03f
+            setPadding(dp(2), dp(16), 0, dp(6))
+        })
+        val diagnosticsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val shareLogs = TextView(this).apply {
+            text = getString(R.string.share_diagnostics)
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFF2A1800.toInt())
+            background = ContextCompat.getDrawable(
+                this@PlayerActivity, R.drawable.settings_apply
+            )
+            setPadding(dp(8), dp(10), dp(8), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                dialog.dismiss()
+                Diagnostics.shareReport(this@PlayerActivity, null)
+            }
+        }
+        val copyInfo = TextView(this).apply {
+            text = getString(R.string.copy_device_info)
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextColor(0xFFE8C68E.toInt())
+            background = ContextCompat.getDrawable(
+                this@PlayerActivity, R.drawable.settings_cancel
+            )
+            setPadding(dp(8), dp(10), dp(8), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                Diagnostics.copyReport(this@PlayerActivity, null)
+            }
+        }
+        diagnosticsRow.addView(
+            shareLogs,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(8)
+            }
+        )
+        diagnosticsRow.addView(
+            copyInfo,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        content.addView(
+            diagnosticsRow,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        content.addView(TextView(this).apply {
+            text = getString(R.string.diagnostics_hint)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextColor(0x99D7C3AE.toInt())
+            setPadding(dp(2), dp(6), dp(2), 0)
+        }, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
@@ -777,6 +842,7 @@ class PlayerActivity : GameActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Diagnostics.installCrashHandler(this)
         toolbarOnRight = savedInstanceState?.getBoolean("toolbarOnRight") ?: false
         toolbarPosition = savedInstanceState?.getFloat("toolbarPosition", 0.5f) ?: 0.5f
         nativeInit { message ->

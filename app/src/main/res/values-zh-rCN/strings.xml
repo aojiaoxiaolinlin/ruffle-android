@@ -36,4 +36,19 @@
     <string name="custom_base_url_hint">相对资源路径将基于此 HTTP(S) 地址加载。目录网址请以 / 结尾，留空则使用 SWF 所在位置。</string>
     <string name="invalid_base_url">请输入完整的 HTTP 或 HTTPS 网址，包含服务器地址。</string>
     <string name="work_in_progress_warning">这款应用还在开发中，一些功能可能尚未实现！</string>
+    <string name="diagnostics">诊断与反馈</string>
+    <string name="diagnostics_hint">日志可能包含设备、画面设置和游戏运行信息，分享前请检查。</string>
+    <string name="share_diagnostics">分享诊断日志</string>
+    <string name="copy_error_details">复制错误信息</string>
+    <string name="copy_device_info">复制设备信息</string>
+    <string name="diagnostics_copied">已复制到剪贴板</string>
+    <string name="diagnostics_share_failed">没有可用的应用来分享日志</string>
+    <string name="crash_title">游戏遇到问题</string>
+    <string name="crash_last_run">上次运行发生崩溃</string>
+    <string name="crash_prompt_body">可以分享诊断日志帮助定位问题，日志只会发送到你选择的应用。</string>
+    <string name="crash_share">分享日志</string>
+    <string name="crash_dismiss">忽略</string>
+    <string name="crash_close">关闭</string>
+    <string name="crash_privacy_hint">日志可能包含设备信息、画面设置和游戏运行信息，分享前请确认。</string>
+    <string name="crash_error_label">错误信息</string>
 </resources>

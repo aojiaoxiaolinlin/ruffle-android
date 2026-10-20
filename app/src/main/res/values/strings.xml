@@ -36,4 +36,19 @@
     <string name="custom_base_url_hint">Resolve relative resource URLs against this HTTP(S) address. End a directory URL with /. Leave empty to use the SWF location.</string>
     <string name="invalid_base_url">Enter a complete HTTP or HTTPS URL, including the server address.</string>
     <string name="work_in_progress_warning">This app is a work in progress. Some functionality may not be implemented yet!</string>
+    <string name="diagnostics">Diagnostics &amp; feedback</string>
+    <string name="diagnostics_hint">Logs can include device, graphics settings and gameplay information. Review them before sharing.</string>
+    <string name="share_diagnostics">Share diagnostic logs</string>
+    <string name="copy_error_details">Copy error details</string>
+    <string name="copy_device_info">Copy device info</string>
+    <string name="diagnostics_copied">Copied to clipboard</string>
+    <string name="diagnostics_share_failed">No app available to share the logs</string>
+    <string name="crash_title">The game hit a problem</string>
+    <string name="crash_last_run">The previous session crashed</string>
+    <string name="crash_prompt_body">Share the diagnostic logs to help track this down. They are only sent to the app you pick.</string>
+    <string name="crash_share">Share logs</string>
+    <string name="crash_dismiss">Dismiss</string>
+    <string name="crash_close">Close</string>
+    <string name="crash_privacy_hint">The logs may contain device details, graphics settings and gameplay information. Review them before sharing.</string>
+    <string name="crash_error_label">Error details</string>
 </resources>
