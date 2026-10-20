@@ -580,7 +580,7 @@ class PlayerActivity : GameActivity() {
                 setTypeface(null, Typeface.BOLD)
                 setTextColor(0xFFE8C68E.toInt())
                 letterSpacing = 0.03f
-                setPadding(dp(2), dp(14), 0, dp(6))
+                setPadding(dp(2), dp(10), 0, dp(6))
             })
             val control = SegmentedControl(this)
             control.setOptions(labels, selected, onSelected)
@@ -731,7 +731,7 @@ class PlayerActivity : GameActivity() {
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
-            setPadding(0, dp(12), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
         val cancel = TextView(this).apply {
             text = getString(R.string.settings_cancel)
@@ -806,7 +806,7 @@ class PlayerActivity : GameActivity() {
             val width = (metrics.widthPixels * if (landscape) 0.55f else 0.92f)
                 .toInt()
                 .coerceAtMost(dp(540))
-            val height = (metrics.heightPixels * if (landscape) 0.9f else 0.7f).toInt()
+            val height = (metrics.heightPixels * if (landscape) 0.96f else 0.7f).toInt()
             setLayout(width, height)
         }
         dialog.setOnShowListener { scroll.scrollTo(0, 0) }

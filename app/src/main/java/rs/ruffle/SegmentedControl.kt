@@ -37,7 +37,7 @@ internal class SegmentedControl(context: Context) : LinearLayout(context) {
                 text = label
                 gravity = Gravity.CENTER
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setPadding(dp(4), dp(9), dp(4), dp(9))
+                setPadding(dp(4), dp(8), dp(4), dp(8))
                 isClickable = true
                 isFocusable = true
                 layoutParams = LinearLayout.LayoutParams(
