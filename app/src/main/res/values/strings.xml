@@ -7,7 +7,16 @@
     <string name="render_scale">Render resolution</string>
     <string name="frame_rate">Playback frame rate</string>
     <string name="frame_rate_auto">Follow SWF (auto)</string>
+    <string name="frame_rate_auto_short">Auto</string>
     <string name="frame_rate_hint">Overrides the movie frame rate. Higher values make playback run faster.</string>
+    <string name="quality_low_short">Smooth</string>
+    <string name="quality_medium_short">Balanced</string>
+    <string name="quality_high_short">Sharp</string>
+    <string name="backend_gles_short">GLES</string>
+    <string name="backend_vulkan_short">Vulkan</string>
+    <string name="settings_cancel">Cancel</string>
+    <string name="settings_apply">Apply</string>
+    <string name="close_player_settings">Close settings</string>
     <string name="stage_quality">Stage quality</string>
     <string name="quality_low">Smooth (no anti-aliasing)</string>
     <string name="quality_medium">Balanced (2x MSAA)</string>

@@ -415,18 +415,17 @@
         app:layout_constraintBottom_toBottomOf="@id/placeholder"
         app:layout_constraintStart_toStartOf="parent">
 
-        <Button
+        <ImageButton
             android:id="@+id/button_menu"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="@drawable/floating_fab"
             android:contentDescription="@string/player_menu"
             android:elevation="4dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:text="☰"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp" />
+            android:padding="13dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_menu"
+            android:tint="#FFFFFF" />
 
         <LinearLayout
             android:id="@+id/menu_actions"
@@ -437,56 +436,52 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-            <Button
+            <ImageButton
                 android:id="@+id/button_kb"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/toggle_keyboard"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
+                android:padding="13dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_keyboard"
                 android:tag="kb"
-                android:text="⌨"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp" />
+                android:tint="#FFFFFF" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/button_cm"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_menu"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
+                android:padding="13dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_list"
                 android:tag="cm"
-                android:text="▤"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp" />
+                android:tint="#FFFFFF" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/button_reload"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/reload_movie"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
-                android:text="↻"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp" />
+                android:padding="13dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_refresh"
+                android:tint="#FFFFFF" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/button_settings"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/player_settings"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
+                android:padding="13dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_settings"
                 android:tag="settings"
-                android:text="⚙"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp" />
+                android:tint="#FFFFFF" />
 
         </LinearLayout>
 

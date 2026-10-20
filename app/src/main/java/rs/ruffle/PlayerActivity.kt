@@ -1,14 +1,20 @@
 package rs.ruffle
 
 import android.annotation.SuppressLint
-import android.app.AlertDialog
+import android.app.Dialog
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -18,14 +24,14 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupMenu
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -173,17 +179,10 @@ class PlayerActivity : GameActivity() {
                     item.setChecked(true)
                 }
             }
-            val reloadItemId = items.size
-            val exitItemId = items.size + 1
-            menu.add(group + 1, reloadItemId, Menu.NONE, R.string.reload_movie)
+            val exitItemId = items.size
             menu.add(group + 1, exitItemId, Menu.NONE, R.string.exit_player)
             popup.setOnMenuItemClickListener { item: MenuItem ->
                 when (item.itemId) {
-                    reloadItemId -> {
-                        popup.dismiss()
-                        // Retain the source URI, grants and launch options in the Intent.
-                        recreate()
-                    }
                     exitItemId -> finish()
                     else -> runContextMenuCallback(item.itemId)
                 }
@@ -346,8 +345,8 @@ class PlayerActivity : GameActivity() {
         if (menuExpanded == expanded) return
         menuExpanded = expanded
         val actions = findViewById<View>(R.id.menu_actions)
-        val toggle = findViewById<Button>(R.id.button_menu)
-        toggle.text = if (expanded) "✕" else "☰"
+        val toggle = findViewById<ImageButton>(R.id.button_menu)
+        toggle.setImageResource(if (expanded) R.drawable.ic_close else R.drawable.ic_menu)
         toggle.contentDescription = getString(
             if (expanded) R.string.close_player_menu else R.string.player_menu
         )
@@ -420,138 +419,210 @@ class PlayerActivity : GameActivity() {
     }
 
     private fun showPlayerSettings() {
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
         val scales = floatArrayOf(1.0f, 0.8f, 0.65f, 0.5f)
-        val scaleLabels = arrayOf("100%", "80%", "65%", "50%")
+        val scaleLabels = listOf("100%", "80%", "65%", "50%")
         val currentScale = PlayerSettings.renderScale(this)
         var selectedScale = scales.indices.minByOrNull {
             kotlin.math.abs(scales[it] - currentScale)
         } ?: 2
 
-        val qualityLabels = arrayOf(
-            getString(R.string.quality_low),
-            getString(R.string.quality_medium),
-            getString(R.string.quality_high)
+        val qualityLabels = listOf(
+            getString(R.string.quality_low_short),
+            getString(R.string.quality_medium_short),
+            getString(R.string.quality_high_short)
         )
         var selectedQuality = PlayerSettings.stageQuality(this)
+
         val frameRates = intArrayOf(
             PlayerSettings.FRAME_RATE_AUTO, 24, 30, 45, PlayerSettings.MAX_FRAME_RATE
         )
-        val currentFrameRate = PlayerSettings.frameRate(this)
-        var selectedFrameRate = frameRates.indexOf(currentFrameRate).takeIf { it >= 0 } ?: 0
+        val frameRateLabels = listOf(
+            getString(R.string.frame_rate_auto_short), "24", "30", "45", "60"
+        )
+        var selectedFrameRate = frameRates.indexOf(PlayerSettings.frameRate(this))
+            .takeIf { it >= 0 } ?: 0
+
+        val backendLabels = listOf(
+            getString(R.string.backend_gles_short),
+            getString(R.string.backend_vulkan_short)
+        )
         val previousBackend = PlayerSettings.graphicsBackend(this)
         var selectedBackend = previousBackend
 
-        val density = resources.displayMetrics.density
-        val container = LinearLayout(this).apply {
+        val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), 0)
+            background = ContextCompat.getDrawable(this@PlayerActivity, R.drawable.settings_panel)
+            setPadding(dp(20), dp(16), dp(20), dp(16))
         }
 
-        fun addSectionLabel(text: String) {
-            container.addView(TextView(this).apply {
-                this.text = text
-                setPadding(0, (12 * density).toInt(), 0, (4 * density).toInt())
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(TextView(this).apply {
+            text = getString(R.string.player_settings)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFFF7E9D7.toInt())
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val close = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_close)
+            imageTintList = ColorStateList.valueOf(0xFFD7C3AE.toInt())
+            contentDescription = getString(R.string.close_player_settings)
+            val ripple = TypedValue()
+            theme.resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless, ripple, true
+            )
+            setBackgroundResource(ripple.resourceId)
+            setOnClickListener { dialog.dismiss() }
+        }
+        header.addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
+        panel.addView(header, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
+        val scroll = ScrollView(this).apply {
+            isVerticalFadingEdgeEnabled = true
+            isFillViewport = true
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        scroll.addView(content, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        panel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        fun addSection(
+            title: String,
+            labels: List<String>,
+            selected: Int,
+            hint: String? = null,
+            onSelected: (Int) -> Unit
+        ) {
+            content.addView(TextView(this).apply {
+                text = title
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(0xFFE8C68E.toInt())
+                letterSpacing = 0.03f
+                setPadding(dp(2), dp(14), 0, dp(6))
             })
-        }
-
-        addSectionLabel(getString(R.string.render_scale))
-        val scaleIds = scales.indices.map { 1000 + it }
-        val scaleGroup = RadioGroup(this)
-        scales.indices.forEach { index ->
-            scaleGroup.addView(RadioButton(this).apply {
-                id = scaleIds[index]
-                text = scaleLabels[index]
-                isChecked = index == selectedScale
-            })
-        }
-        scaleGroup.setOnCheckedChangeListener { _, checkedId ->
-            selectedScale = scaleIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedScale
-        }
-        container.addView(scaleGroup)
-
-        addSectionLabel(getString(R.string.stage_quality))
-        val qualityIds = qualityLabels.indices.map { 2000 + it }
-        val qualityGroup = RadioGroup(this)
-        qualityLabels.indices.forEach { index ->
-            qualityGroup.addView(RadioButton(this).apply {
-                id = qualityIds[index]
-                text = qualityLabels[index]
-                isChecked = index == selectedQuality
-            })
-        }
-        qualityGroup.setOnCheckedChangeListener { _, checkedId ->
-            selectedQuality = qualityIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedQuality
-        }
-        container.addView(qualityGroup)
-
-        addSectionLabel(getString(R.string.frame_rate))
-        val frameRateLabels = frameRates.map { rate ->
-            if (rate == PlayerSettings.FRAME_RATE_AUTO) {
-                getString(R.string.frame_rate_auto)
-            } else {
-                "$rate fps"
+            val control = SegmentedControl(this)
+            control.setOptions(labels, selected, onSelected)
+            content.addView(
+                control,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            if (hint != null) {
+                content.addView(TextView(this).apply {
+                    text = hint
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    setTextColor(0x99D7C3AE.toInt())
+                    setPadding(dp(2), dp(6), dp(2), 0)
+                }, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             }
         }
-        val frameRateIds = frameRates.indices.map { 4000 + it }
-        val frameRateGroup = RadioGroup(this)
-        frameRateLabels.forEachIndexed { index, label ->
-            frameRateGroup.addView(RadioButton(this).apply {
-                id = frameRateIds[index]
-                text = label
-                isChecked = index == selectedFrameRate
-            })
-        }
-        frameRateGroup.setOnCheckedChangeListener { _, checkedId ->
-            selectedFrameRate =
-                frameRateIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedFrameRate
-        }
-        container.addView(frameRateGroup)
-        container.addView(TextView(this).apply {
-            text = getString(R.string.frame_rate_hint)
-            textSize = 12f
-            alpha = 0.7f
-        })
 
-        addSectionLabel(getString(R.string.graphics_backend))
-        val backendLabels = arrayOf(
-            getString(R.string.backend_gles),
-            getString(R.string.backend_vulkan)
-        )
-        val backendIds = backendLabels.indices.map { 3000 + it }
-        val backendGroup = RadioGroup(this)
-        backendLabels.indices.forEach { index ->
-            backendGroup.addView(RadioButton(this).apply {
-                id = backendIds[index]
-                text = backendLabels[index]
-                isChecked = index == selectedBackend
-            })
-        }
-        backendGroup.setOnCheckedChangeListener { _, checkedId ->
-            selectedBackend = backendIds.indexOf(checkedId).takeIf { it >= 0 } ?: selectedBackend
-        }
-        container.addView(backendGroup)
+        addSection(
+            getString(R.string.render_scale), scaleLabels, selectedScale
+        ) { selectedScale = it }
+        addSection(
+            getString(R.string.stage_quality), qualityLabels, selectedQuality
+        ) { selectedQuality = it }
+        addSection(
+            getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
+            getString(R.string.frame_rate_hint)
+        ) { selectedFrameRate = it }
+        addSection(
+            getString(R.string.graphics_backend), backendLabels, selectedBackend,
+            getString(R.string.backend_reload_hint)
+        ) { selectedBackend = it }
 
-        AlertDialog.Builder(this)
-            .setTitle(R.string.player_settings)
-            .setView(ScrollView(this).apply { addView(container) })
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                PlayerSettings.setRenderScale(this, scales[selectedScale])
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(0, dp(12), 0, 0)
+        }
+        val cancel = TextView(this).apply {
+            text = getString(R.string.settings_cancel)
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTextColor(0xFFE8C68E.toInt())
+            background = ContextCompat.getDrawable(
+                this@PlayerActivity, R.drawable.settings_cancel
+            )
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { dialog.dismiss() }
+        }
+        val apply = TextView(this).apply {
+            text = getString(R.string.settings_apply)
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFF2A1800.toInt())
+            background = ContextCompat.getDrawable(
+                this@PlayerActivity, R.drawable.settings_apply
+            )
+            setPadding(dp(22), dp(10), dp(22), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                PlayerSettings.setRenderScale(this@PlayerActivity, scales[selectedScale])
                 // Force a re-apply even if the rounded pixel size is unchanged.
                 appliedSurfaceWidth = 0
                 appliedSurfaceHeight = 0
                 applyRenderScale()
-                PlayerSettings.setStageQuality(this, selectedQuality)
+                PlayerSettings.setStageQuality(this@PlayerActivity, selectedQuality)
                 setStageQuality(selectedQuality)
                 val frameRate = frameRates[selectedFrameRate]
-                PlayerSettings.setFrameRate(this, frameRate)
+                PlayerSettings.setFrameRate(this@PlayerActivity, frameRate)
                 setFrameRate(frameRate)
-                PlayerSettings.setGraphicsBackend(this, selectedBackend)
+                PlayerSettings.setGraphicsBackend(this@PlayerActivity, selectedBackend)
                 if (selectedBackend != previousBackend) {
-                    Toast.makeText(this, R.string.backend_reload_hint, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@PlayerActivity, R.string.backend_reload_hint, Toast.LENGTH_SHORT
+                    ).show()
                 }
+                dialog.dismiss()
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }
+        footer.addView(
+            cancel,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = dp(10) }
+        )
+        footer.addView(
+            apply,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+        panel.addView(footer, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
+        dialog.setContentView(panel)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0.65f)
+            val metrics = resources.displayMetrics
+            val landscape = metrics.widthPixels > metrics.heightPixels
+            val width = (metrics.widthPixels * if (landscape) 0.55f else 0.92f)
+                .toInt()
+                .coerceAtMost(dp(540))
+            val height = (metrics.heightPixels * if (landscape) 0.9f else 0.7f).toInt()
+            setLayout(width, height)
+        }
+        dialog.show()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
