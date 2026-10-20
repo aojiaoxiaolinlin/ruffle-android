@@ -496,13 +496,14 @@ class PlayerActivity : GameActivity() {
         panel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         fun addSection(
+            parent: LinearLayout,
             title: String,
             labels: List<String>,
             selected: Int,
             hint: String? = null,
             onSelected: (Int) -> Unit
         ) {
-            content.addView(TextView(this).apply {
+            parent.addView(TextView(this).apply {
                 text = title
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setTypeface(null, Typeface.BOLD)
@@ -512,13 +513,13 @@ class PlayerActivity : GameActivity() {
             })
             val control = SegmentedControl(this)
             control.setOptions(labels, selected, onSelected)
-            content.addView(
+            parent.addView(
                 control,
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             if (hint != null) {
-                content.addView(TextView(this).apply {
+                parent.addView(TextView(this).apply {
                     text = hint
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                     setTextColor(0x99D7C3AE.toInt())
@@ -527,20 +528,61 @@ class PlayerActivity : GameActivity() {
             }
         }
 
-        addSection(
-            getString(R.string.render_scale), scaleLabels, selectedScale
-        ) { selectedScale = it }
-        addSection(
-            getString(R.string.stage_quality), qualityLabels, selectedQuality
-        ) { selectedQuality = it }
-        addSection(
-            getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
-            getString(R.string.frame_rate_hint)
-        ) { selectedFrameRate = it }
-        addSection(
-            getString(R.string.graphics_backend), backendLabels, selectedBackend,
-            getString(R.string.backend_reload_hint)
-        ) { selectedBackend = it }
+        val metrics = resources.displayMetrics
+        val landscape = metrics.widthPixels > metrics.heightPixels
+        if (landscape) {
+            // Two columns keep all four sections visible without scrolling
+            // in landscape, where the dialog is only ~400dp tall.
+            val columns = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+            val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val right = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            columns.addView(
+                left,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = dp(14)
+                }
+            )
+            columns.addView(
+                right,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            content.addView(
+                columns,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            addSection(
+                left, getString(R.string.render_scale), scaleLabels, selectedScale
+            ) { selectedScale = it }
+            addSection(
+                left, getString(R.string.stage_quality), qualityLabels, selectedQuality
+            ) { selectedQuality = it }
+            addSection(
+                right, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
+                getString(R.string.frame_rate_hint)
+            ) { selectedFrameRate = it }
+            addSection(
+                right, getString(R.string.graphics_backend), backendLabels, selectedBackend,
+                getString(R.string.backend_reload_hint)
+            ) { selectedBackend = it }
+        } else {
+            addSection(
+                content, getString(R.string.render_scale), scaleLabels, selectedScale
+            ) { selectedScale = it }
+            addSection(
+                content, getString(R.string.stage_quality), qualityLabels, selectedQuality
+            ) { selectedQuality = it }
+            addSection(
+                content, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
+                getString(R.string.frame_rate_hint)
+            ) { selectedFrameRate = it }
+            addSection(
+                content, getString(R.string.graphics_backend), backendLabels, selectedBackend,
+                getString(R.string.backend_reload_hint)
+            ) { selectedBackend = it }
+        }
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -614,14 +656,13 @@ class PlayerActivity : GameActivity() {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             setDimAmount(0.65f)
-            val metrics = resources.displayMetrics
-            val landscape = metrics.widthPixels > metrics.heightPixels
             val width = (metrics.widthPixels * if (landscape) 0.55f else 0.92f)
                 .toInt()
                 .coerceAtMost(dp(540))
             val height = (metrics.heightPixels * if (landscape) 0.9f else 0.7f).toInt()
             setLayout(width, height)
         }
+        dialog.setOnShowListener { scroll.scrollTo(0, 0) }
         dialog.show()
     }
 
