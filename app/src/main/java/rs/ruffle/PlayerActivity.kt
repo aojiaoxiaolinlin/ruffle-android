@@ -295,16 +295,17 @@ class PlayerActivity : GameActivity() {
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         var startX = 0f
         var startY = 0f
-        var toolbarX = 0f
-        var toolbarY = 0f
+        var startMarginX = 0
+        var startMarginY = 0
         var dragging = false
         val listener = View.OnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
                     startY = event.rawY
-                    toolbarX = toolbar.x
-                    toolbarY = toolbar.y
+                    val params = toolbar.layoutParams as? ConstraintLayout.LayoutParams
+                    startMarginX = params?.marginStart ?: toolbar.left
+                    startMarginY = params?.topMargin ?: toolbar.top
                     dragging = false
                     view.isPressed = true
                     true
@@ -315,41 +316,31 @@ class PlayerActivity : GameActivity() {
                         view.isPressed = false
                     }
                     if (dragging) {
-                        val desiredX = toolbarX + event.rawX - startX
-                        val desiredY = toolbarY + event.rawY - startY
+                        val desiredX = startMarginX + event.rawX - startX
+                        val desiredY = startMarginY + event.rawY - startY
+                        var x = desiredX
+                        var y = desiredY
                         val limits = toolbarLimits(toolbar)
                         if (limits != null) {
                             // Keep the button inside the visible area while it is
                             // being dragged; otherwise the parent clips it.
-                            toolbar.x = desiredX.coerceIn(
-                                limits[0].toFloat(), limits[2].toFloat()
-                            )
-                            toolbar.y = desiredY.coerceIn(
-                                limits[1].toFloat(), limits[3].toFloat()
-                            )
-                        } else {
-                            toolbar.x = desiredX
-                            toolbar.y = desiredY
+                            x = x.coerceIn(limits[0].toFloat(), limits[2].toFloat())
+                            y = y.coerceIn(limits[1].toFloat(), limits[3].toFloat())
                         }
+                        // Move through layout params instead of translation:
+                        // a layout pass reliably repaints the view over the
+                        // game SurfaceView on Adreno devices.
+                        moveToolbarTo(x.toInt(), y.toInt())
                         toolbarOnRight =
-                            toolbar.x + toolbar.width / 2f > layout.width / 2f
+                            x + toolbar.width / 2f > layout.width / 2f
                         toolbarPosition =
-                            (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
-                        // Over a SurfaceView the moved view is not always
-                        // redrawn at its new position until it is invalidated.
-                        // The elevated menu button also needs its own redraw.
-                        toolbar.invalidate()
-                        toolbar.findViewById<View>(R.id.button_menu)?.invalidate()
-                        toolbar.postInvalidateOnAnimation()
+                            (y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.isPressed = false
                     if (dragging) {
-                        toolbarOnRight = toolbar.x + toolbar.width / 2f > layout.width / 2f
-                        toolbarPosition =
-                            (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                         positionToolbar()
                     } else if (event.actionMasked == MotionEvent.ACTION_UP) {
                         view.performClick()
@@ -361,6 +352,17 @@ class PlayerActivity : GameActivity() {
         }
         layout.findViewById<View>(R.id.button_menu).setOnTouchListener(listener)
         layout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> positionToolbar() }
+        // The first post can run before the button has a measured size; wait
+        // for the first real layout before applying the saved position.
+        toolbar.viewTreeObserver.addOnGlobalLayoutListener(
+            object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    if (toolbar.width == 0 || toolbar.height == 0) return
+                    toolbar.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    positionToolbar()
+                }
+            }
+        )
         toolbar.post { positionToolbar() }
     }
 
@@ -419,21 +421,26 @@ class PlayerActivity : GameActivity() {
         return intArrayOf(left, top, maxX, maxY)
     }
 
+    private fun moveToolbarTo(x: Int, y: Int) {
+        val toolbar = findViewById<View>(R.id.toolbar)
+        val params = toolbar.layoutParams as? ConstraintLayout.LayoutParams ?: return
+        if (params.marginStart == x && params.topMargin == y) return
+        params.marginStart = x
+        params.topMargin = y
+        toolbar.layoutParams = params
+        toolbar.requestLayout()
+    }
+
     private fun positionToolbar() {
         val toolbar = findViewById<View>(R.id.toolbar)
         val parent = toolbar.parent as? View ?: return
         val limits = toolbarLimits(toolbar) ?: return
-        toolbar.x = (if (toolbarOnRight) limits[2] else limits[0]).toFloat()
-        toolbar.y = (toolbarPosition * parent.height).coerceIn(
+        val x = if (toolbarOnRight) limits[2] else limits[0]
+        val y = (toolbarPosition * parent.height).coerceIn(
             limits[1].toFloat(),
             limits[3].toFloat()
-        )
-        // SurfaceView content is composited in a separate layer. Repaint both
-        // the view and its parent so the new position is actually presented.
-        toolbar.invalidate()
-        toolbar.findViewById<View>(R.id.button_menu)?.invalidate()
-        toolbar.postInvalidateOnAnimation()
-        parent.invalidate()
+        ).toInt()
+        moveToolbarTo(x, y)
     }
 
     /**

@@ -407,11 +407,9 @@
         android:id="@+id/toolbar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
         android:elevation="8dp"
         android:orientation="vertical"
-        app:layout_constraintTop_toTopOf="@id/placeholder"
-        app:layout_constraintBottom_toBottomOf="@id/placeholder"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
         <ImageButton
