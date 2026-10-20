@@ -337,7 +337,10 @@ class PlayerActivity : GameActivity() {
                             (toolbar.y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                         // Over a SurfaceView the moved view is not always
                         // redrawn at its new position until it is invalidated.
+                        // The elevated menu button also needs its own redraw.
                         toolbar.invalidate()
+                        toolbar.findViewById<View>(R.id.button_menu)?.invalidate()
+                        toolbar.postInvalidateOnAnimation()
                     }
                     true
                 }
@@ -428,6 +431,8 @@ class PlayerActivity : GameActivity() {
         // SurfaceView content is composited in a separate layer. Repaint both
         // the view and its parent so the new position is actually presented.
         toolbar.invalidate()
+        toolbar.findViewById<View>(R.id.button_menu)?.invalidate()
+        toolbar.postInvalidateOnAnimation()
         parent.invalidate()
     }
 
