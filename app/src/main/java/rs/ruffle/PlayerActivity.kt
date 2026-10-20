@@ -516,6 +516,21 @@ class PlayerActivity : GameActivity() {
             setTypeface(null, Typeface.BOLD)
             setTextColor(0xFFF7E9D7.toInt())
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        val share = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_share)
+            imageTintList = ColorStateList.valueOf(0xFFD7C3AE.toInt())
+            contentDescription = getString(R.string.share_diagnostics)
+            val ripple = TypedValue()
+            theme.resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless, ripple, true
+            )
+            setBackgroundResource(ripple.resourceId)
+            setOnClickListener {
+                dialog.dismiss()
+                Diagnostics.shareReport(this@PlayerActivity, null)
+            }
+        }
+        header.addView(share, LinearLayout.LayoutParams(dp(40), dp(40)))
         val close = ImageButton(this).apply {
             setImageResource(R.drawable.ic_close)
             imageTintList = ColorStateList.valueOf(0xFFD7C3AE.toInt())
