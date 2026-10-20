@@ -1,6 +1,8 @@
 package rs.ruffle
 
 import android.app.Activity
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -31,6 +33,7 @@ internal object Diagnostics {
     private const val PERF_PREVIOUS = "perf-previous.log"
     private const val CRASH_RUST = "crash-rust.log"
     private const val CRASH_JAVA = "crash-java.log"
+    private const val CRASH_NATIVE = "native-crash.log"
     private const val CRASH_ACK = "crash-ack"
     private const val MAX_LOG_BYTES = 2 * 1024 * 1024
 
@@ -98,10 +101,61 @@ internal object Diagnostics {
         }
     }
 
+    /**
+     * Native crashes (for example a SIGSEGV inside a GPU driver) bypass the
+     * Rust panic hook. Android records them as an [ApplicationExitInfo]; copy
+     * the newest one into a log so the next launch can offer it.
+     */
+    private fun captureExitInfo(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val manager = context.getSystemService(ActivityManager::class.java) ?: return
+        val exits = runCatching {
+            manager.getHistoricalProcessExitReasons(context.packageName, 0, 10)
+        }.getOrNull() ?: return
+        val exit = exits
+            .filter {
+                it.processName == context.packageName &&
+                    (
+                        it.reason == ApplicationExitInfo.REASON_CRASH_NATIVE ||
+                            it.reason == ApplicationExitInfo.REASON_CRASH ||
+                            it.reason == ApplicationExitInfo.REASON_ANR
+                        )
+            }
+            .maxByOrNull { it.timestamp } ?: return
+        val file = File(storageDir(context), CRASH_NATIVE)
+        if (file.exists() && file.lastModified() >= exit.timestamp) return
+        val trace = runCatching {
+            exit.traceInputStream?.use { it.readBytes().toString(Charsets.UTF_8) }
+        }.getOrNull().orEmpty()
+        val text = buildString {
+            appendLine("=== NATIVE/APP CRASH ===")
+            appendLine("time: ${formatTime(exit.timestamp)}")
+            appendLine("reason: ${reasonName(exit.reason)}")
+            appendLine("status: ${exit.status}")
+            appendLine("process: ${exit.processName}")
+            appendLine("description: ${exit.description ?: "-"}")
+            appendLine("rss: ${exit.rss} KB, pss: ${exit.pss} KB")
+            appendLine("--- trace ---")
+            append(trace.take(64_000))
+        }
+        runCatching {
+            file.writeText(text)
+            file.setLastModified(exit.timestamp)
+        }
+    }
+
+    private fun reasonName(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_CRASH -> "CRASH"
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "CRASH_NATIVE"
+        ApplicationExitInfo.REASON_ANR -> "ANR"
+        else -> reason.toString()
+    }
+
     fun pendingCrash(context: Context): PendingCrash? {
+        captureExitInfo(context)
         val dir = storageDir(context)
         val ackedAt = File(dir, CRASH_ACK).let { if (it.exists()) it.lastModified() else 0L }
-        return listOf(CRASH_RUST, CRASH_JAVA)
+        return listOf(CRASH_RUST, CRASH_JAVA, CRASH_NATIVE)
             .map { File(dir, it) }
             .filter { it.exists() && it.lastModified() > ackedAt }
             .maxByOrNull { it.lastModified() }
@@ -216,6 +270,7 @@ internal object Diagnostics {
             addFile(PERF_PREVIOUS, File(storage, PERF_PREVIOUS))
             addFile(CRASH_RUST, File(storage, CRASH_RUST))
             addFile(CRASH_JAVA, File(storage, CRASH_JAVA))
+            addFile(CRASH_NATIVE, File(storage, CRASH_NATIVE))
         }
         return zip
     }
@@ -232,6 +287,8 @@ internal object Diagnostics {
         }.getOrDefault("")
     }
 
-    private fun timestamp(): String =
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+    private fun timestamp(): String = formatTime(System.currentTimeMillis())
+
+    private fun formatTime(epochMillis: Long): String =
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(epochMillis))
 }
