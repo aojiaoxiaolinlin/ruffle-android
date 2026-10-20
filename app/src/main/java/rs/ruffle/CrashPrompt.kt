@@ -3,7 +3,10 @@ package rs.ruffle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,7 +55,11 @@ fun CrashPrompt() {
         textContentColor = PromptSecondary,
         title = { Text(stringResource(R.string.crash_last_run)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 180.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(stringResource(R.string.crash_prompt_body))
                 Spacer(Modifier.height(10.dp))
                 Text(
