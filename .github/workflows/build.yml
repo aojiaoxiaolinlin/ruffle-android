@@ -103,6 +103,9 @@ jobs:
         with:
           submodules: true
 
+      - name: Test release signing verification
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
       - uses: actions/download-artifact@v8
         with: # no name set, so all artifacts are downloaded
           path: native-libs
