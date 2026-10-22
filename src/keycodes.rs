@@ -2,10 +2,14 @@ use android_activity::input::{KeyEvent, Keycode};
 use ruffle_core::events::{KeyDescriptor, KeyLocation, LogicalKey, NamedKey, PhysicalKey};
 
 pub fn android_key_event_to_ruffle_key_descriptor(android: &KeyEvent) -> Option<KeyDescriptor> {
-    // TODO: Maybe do something with `android.scan_code()`?
+    android_keycode_to_ruffle_key_descriptor(android.key_code())
+}
+
+pub fn android_keycode_to_ruffle_key_descriptor(key_code: Keycode) -> Option<KeyDescriptor> {
+    // Physical scancodes are not provided by IME key events.
     let physical_key = PhysicalKey::Unknown;
 
-    let logical_key = match android.key_code() {
+    let logical_key = match key_code {
         Keycode::DpadUp => LogicalKey::Named(NamedKey::ArrowUp),
         Keycode::DpadDown => LogicalKey::Named(NamedKey::ArrowDown),
         Keycode::DpadLeft => LogicalKey::Named(NamedKey::ArrowLeft),
@@ -112,7 +116,7 @@ pub fn android_key_event_to_ruffle_key_descriptor(android: &KeyEvent) -> Option<
         _ => return None,
     };
 
-    let key_location = match android.key_code() {
+    let key_location = match key_code {
         Keycode::AltLeft | Keycode::ShiftLeft | Keycode::CtrlLeft | Keycode::MetaLeft => {
             KeyLocation::Left
         }

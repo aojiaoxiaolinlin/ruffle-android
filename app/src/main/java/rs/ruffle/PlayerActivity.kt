@@ -14,6 +14,7 @@ import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
@@ -23,6 +24,7 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -47,6 +49,7 @@ class PlayerActivity : GameActivity() {
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
     private var menuExpanded = false
+    private lateinit var textInputView: GameTextInputView
 
     @Suppress("unused")
     // Used by Rust
@@ -152,8 +155,25 @@ class PlayerActivity : GameActivity() {
     private var appliedSurfaceWidth = 0
     private var appliedSurfaceHeight = 0
 
-    private external fun keydown(keyTag: String)
-    private external fun keyup(keyTag: String)
+    private external fun commitText(text: String)
+    private external fun deleteText(before: Int, after: Int, codepoints: Boolean)
+    private external fun inputKey(code: Int, down: Boolean)
+
+    @Suppress("unused") // Called by the Flash focus tracker through JNI.
+    private fun setSoftKeyboardVisible(visible: Boolean) {
+        runOnUiThread {
+            if (isFinishing || isDestroyed || !::textInputView.isInitialized) return@runOnUiThread
+            val imm = getSystemService(InputMethodManager::class.java)
+            if (visible) {
+                textInputView.requestFocus()
+                imm.showSoftInput(textInputView, InputMethodManager.SHOW_IMPLICIT)
+            } else {
+                imm.hideSoftInputFromWindow(textInputView.windowToken, 0)
+                mSurfaceView.requestFocus()
+            }
+        }
+    }
+
     private external fun requestContextMenu()
     private external fun runContextMenuCallback(index: Int)
     private external fun clearContextMenu()
@@ -236,31 +256,27 @@ class PlayerActivity : GameActivity() {
                 applyRenderScale()
             }
         }
-        val keys = gatherAllDescendantsOfType<Button>(
-            layout.getViewById(R.id.keyboard),
-            Button::class.java
+        textInputView = GameTextInputView(
+            this,
+            commit = { commitText(it) },
+            delete = { before, after, codepoints -> deleteText(before, after, codepoints) },
+            key = { event ->
+                if (event.unicodeChar != 0 && event.keyCode != KeyEvent.KEYCODE_ENTER) {
+                    if (event.action == KeyEvent.ACTION_DOWN) {
+                        commitText(String(Character.toChars(event.unicodeChar)))
+                    }
+                } else if (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) {
+                    inputKey(event.keyCode, event.action == KeyEvent.ACTION_DOWN)
+                }
+            },
+            done = { setSoftKeyboardVisible(false) },
         )
-        for (b in keys) {
-            b.setOnTouchListener { view: View, motionEvent: MotionEvent ->
-                val tag = view.tag as String
-                if (motionEvent.action == MotionEvent.ACTION_DOWN) keydown(tag)
-                if (motionEvent.action == MotionEvent.ACTION_UP) keyup(tag)
-                view.performClick()
-                false
-            }
-        }
+        layout.addView(textInputView, ConstraintLayout.LayoutParams(1, 1).apply {
+            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+        })
         layout.findViewById<View>(R.id.button_menu).setOnClickListener {
             setMenuExpanded(!menuExpanded)
-        }
-        layout.findViewById<View>(R.id.button_kb).setOnClickListener {
-            setMenuExpanded(false)
-            val keyboard = layout.getViewById(R.id.keyboard)
-            if (keyboard.visibility == View.VISIBLE) {
-                keyboard.visibility = View.GONE
-            } else {
-                keyboard.visibility = View.VISIBLE
-            }
-            layout.post { positionToolbar() }
         }
         layout.findViewById<View>(R.id.button_cm).setOnClickListener {
             setMenuExpanded(false)
@@ -276,6 +292,10 @@ class PlayerActivity : GameActivity() {
             showPlayerSettings()
         }
         installFloatingToolbar(layout)
+        ViewCompat.setOnApplyWindowInsetsListener(layout) { _, insets ->
+            layout.post { positionToolbar() }
+            insets
+        }
         layout.requestLayout()
         layout.requestFocus()
         mSurfaceView.holder.addCallback(this)
@@ -286,9 +306,6 @@ class PlayerActivity : GameActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         hideSystemUI()
-        val keyboard = findViewById<View>(R.id.keyboard)
-        val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
-        keyboard.visibility = if (isLandscape) View.GONE else View.VISIBLE
         findViewById<View>(R.id.toolbar).post {
             positionToolbar()
             applyRenderScale()
@@ -417,12 +434,9 @@ class PlayerActivity : GameActivity() {
         val maxX = (parent.width - (insets?.right ?: 0) - toolbar.width - margin)
             .coerceAtLeast(left)
         val top = (insets?.top ?: 0) + margin
-        val keyboard = findViewById<View>(R.id.keyboard)
-        val bottomEdge = if (keyboard.visibility == View.VISIBLE) {
-            keyboard.top
-        } else {
-            parent.height - (insets?.bottom ?: 0)
-        }
+        val imeBottom = ViewCompat.getRootWindowInsets(parent)
+            ?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0
+        val bottomEdge = parent.height - maxOf(imeBottom, insets?.bottom ?: 0)
         val maxY = (bottomEdge - toolbar.height - margin).coerceAtLeast(top)
         return intArrayOf(left, top, maxX, maxY)
     }
@@ -896,13 +910,10 @@ class PlayerActivity : GameActivity() {
         // When false, we render behind any system UI windows.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemUI()
-        // You can set IME fields here or in native code using GameActivity_setImeEditorInfoFields.
-        // We set the fields in native_engine.cpp.
-        // super.setImeEditorInfoFields(InputType.TYPE_CLASS_TEXT,
-        //     IME_ACTION_NONE, IME_FLAG_NO_FULLSCREEN );
         requestNoStatusBarFeature()
         supportActionBar?.hide()
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -931,18 +942,6 @@ class PlayerActivity : GameActivity() {
 
         @JvmStatic
         private external fun nativeInit(crashCallback: CrashCallback)
-
-        private fun <T> gatherAllDescendantsOfType(v: View, t: Class<*>): List<T> {
-            val result: MutableList<T> = ArrayList()
-            @Suppress("UNCHECKED_CAST")
-            if (t.isInstance(v)) result.add(v as T)
-            if (v is ViewGroup) {
-                for (i in 0 until v.childCount) {
-                    result.addAll(gatherAllDescendantsOfType(v.getChildAt(i), t))
-                }
-            }
-            return result
-        }
     }
 
     fun interface CrashCallback {

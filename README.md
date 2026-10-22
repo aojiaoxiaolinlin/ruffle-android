@@ -2,6 +2,12 @@ This is a native Android application for [Ruffle](https://ruffle.rs).
 
 It is in a very early stage.
 
+Tap a Flash text field to open the system input method. Chinese composition,
+Unicode text, backspace and forward delete are supported. The keyboard overlays
+the content without resizing its render surface; Back or Done hides it. Floating
+keyboard availability and appearance depend on the installed input method.
+
+
 # Prebuilt APKs
 
 [<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
@@ -69,11 +75,10 @@ and `SIGNING_STORE_PASSWORD` as repository secrets.
 
 In no particular order:
 
-- [ ] Ability to show the built-in virtual keyboard (softinput), for text input
+- [X] Ability to show the system virtual keyboard (softinput), for text input
 - [ ] Controller/Gamepad input?
   - Mapped to key presses and/or virtual mouse pointer
 - [ ] Own custom keyboard overlay, maybe even per-content configs
-  - Not an overlay, and not per-content, but custom keyboard is there
 - [ ] Error/panic handling
 - [ ] Loading "animation" (spinner)
 - [ ] Alternative audio backend (OpenSL ES) for Android < 8
@@ -95,7 +100,7 @@ In no particular order:
 - [X] Navigator backend (fetch, open browser)
   - Opening links works at least
 - [X] Touch/mouse input
-- [X] Keyboard input: only with physical keyboard connected or through `scrcpy`
+- [X] Keyboard input: physical keyboard, `scrcpy`, and the system input method
   - This was needed: https://github.com/rust-windowing/winit/pull/2226
 - [X] Split into a separate repo
 - [X] Add ability to Open SWF by entered/pasted URL (or even directly from clipboard)

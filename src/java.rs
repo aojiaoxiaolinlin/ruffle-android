@@ -332,18 +332,10 @@ impl JavaInterface {
                 .get_method_id(class, jni_str!("getGraphicsBackend"), jni_sig!("()I"))
                 .expect("getGraphicsBackend must exist"),
             get_frame_rate_override: env
-                .get_method_id(
-                    class,
-                    jni_str!("getFrameRateOverride"),
-                    jni_sig!("()I"),
-                )
+                .get_method_id(class, jni_str!("getFrameRateOverride"), jni_sig!("()I"))
                 .expect("getFrameRateOverride must exist"),
             get_soft_filter_scale: env
-                .get_method_id(
-                    class,
-                    jni_str!("getSoftFilterScale"),
-                    jni_sig!("()I"),
-                )
+                .get_method_id(class, jni_str!("getSoftFilterScale"), jni_sig!("()I"))
                 .expect("getSoftFilterScale must exist"),
             get_external_files_dir_path: env
                 .get_method_id(
