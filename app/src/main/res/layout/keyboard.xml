@@ -16,72 +16,81 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/toolbar"
-        android:layout_width="wrap_content"
+        android:layout_width="24dp"
         android:layout_height="wrap_content"
+        android:clipChildren="true"
+        android:clipToPadding="true"
         android:elevation="8dp"
-        android:orientation="vertical"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <ImageButton
-            android:id="@+id/button_menu"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@drawable/floating_fab"
-            android:contentDescription="@string/player_menu"
-            android:padding="13dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_menu"
-            android:tint="#FFFFFF" />
+        app:layout_constraintLeft_toLeftOf="parent">
 
         <LinearLayout
-            android:id="@+id/menu_actions"
+            android:id="@+id/toolbar_content"
             android:layout_width="48dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:background="@drawable/floating_toolbar"
-            android:orientation="vertical"
-            android:visibility="gone">
+            android:layout_gravity="left|top"
+            android:orientation="vertical">
 
             <ImageButton
-                android:id="@+id/button_cm"
+                android:id="@+id/button_menu"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/floating_fab"
                 android:contentDescription="@string/player_menu"
                 android:padding="13dp"
                 android:scaleType="centerInside"
-                android:src="@drawable/ic_list"
-                android:tag="cm"
+                android:src="@drawable/ic_menu"
                 android:tint="#FFFFFF" />
 
-            <ImageButton
-                android:id="@+id/button_reload"
+            <LinearLayout
+                android:id="@+id/menu_actions"
                 android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/reload_movie"
-                android:padding="13dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_refresh"
-                android:tint="#FFFFFF" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/floating_toolbar"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <ImageButton
-                android:id="@+id/button_settings"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/player_settings"
-                android:padding="13dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_settings"
-                android:tag="settings"
-                android:tint="#FFFFFF" />
+                <ImageButton
+                    android:id="@+id/button_cm"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/player_menu"
+                    android:padding="13dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_list"
+                    android:tag="cm"
+                    android:tint="#FFFFFF" />
+
+                <ImageButton
+                    android:id="@+id/button_reload"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/reload_movie"
+                    android:padding="13dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_refresh"
+                    android:tint="#FFFFFF" />
+
+                <ImageButton
+                    android:id="@+id/button_settings"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/player_settings"
+                    android:padding="13dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_settings"
+                    android:tag="settings"
+                    android:tint="#FFFFFF" />
+
+            </LinearLayout>
 
         </LinearLayout>
-
-    </LinearLayout>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
