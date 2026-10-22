@@ -13,7 +13,28 @@ env:
   CARGO_NDK_VERSION: "4.1.2"
 
 jobs:
+  validate-signing:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require persistent release signing
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_CERT_SHA256: ${{ secrets.SIGNING_CERT_SHA256 }}
+        run: |
+          for name in KEYSTORE SIGNING_STORE_PASSWORD SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD SIGNING_CERT_SHA256; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing release signing secret: $name. No temporary signing key will be generated."
+              exit 1
+            fi
+          done
+
   build-native-libs:
+    needs: validate-signing
+    if: ${{ !cancelled() && (needs.validate-signing.result == 'success' || github.event_name == 'pull_request') }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -75,10 +96,8 @@ jobs:
 
   build-apks:
     needs: build-native-libs
+    if: ${{ !cancelled() && needs.build-native-libs.result == 'success' }}
     runs-on: ubuntu-latest
-    env:
-      KEYSTORE: ${{ secrets.KEYSTORE }}
-
     steps:
       - uses: actions/checkout@v7
         with:
@@ -119,27 +138,35 @@ jobs:
           link-to-sdk: true
 
       - name: Decode keystore
-        if: ${{ env.KEYSTORE != '' }}
-        run: echo $KEYSTORE | base64 -di > app/androidkey.jks
-
-      - name: Generate dummy keystore
-        if: ${{ env.KEYSTORE == '' }}
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
         run: |
-            keytool -genkeypair -v -keystore app/androidkey.jks -alias dummy_alias \
-              -storepass dummy_pass -keypass dummy_pass -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=example, OU=example, O=example, L=example, S=example, C=example"
-            echo 'SIGNING_KEY_ALIAS=dummy_alias' >> $GITHUB_ENV
-            echo 'SIGNING_STORE_PASSWORD=dummy_pass' >> $GITHUB_ENV
-            echo 'SIGNING_KEY_PASSWORD=dummy_pass' >> $GITHUB_ENV
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 --decode > app/androidkey.jks
+
+      - name: Set increasing release version
+        run: |
+          baseline=$(sed -n 's/^releaseVersionCode=//p' gradle.properties)
+          version_name=$(sed -n 's/^releaseVersionName=//p' gradle.properties)
+          echo "RELEASE_VERSION_CODE=$((baseline + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION_NAME=${version_name}.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
       - name: Build release APK
         env:
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS || env.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD || env.SIGNING_KEY_PASSWORD }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD || env.SIGNING_STORE_PASSWORD }}
-        run: ./gradlew assembleRelease
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+        run: ./gradlew assembleRelease -PreleaseVersionCode="$RELEASE_VERSION_CODE" -PreleaseVersionName="$RELEASE_VERSION_NAME"
+
+      - name: Verify persistent signing identity
+        if: github.event_name != 'pull_request'
+        env:
+          SIGNING_CERT_SHA256: ${{ secrets.SIGNING_CERT_SHA256 }}
+        run: python3 scripts/verify-release-signing.py app/build/outputs/apk/release/*.apk
 
       - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
         with:
           name: ruffle-release-apks
           path: app/build/outputs/apk/release/*.apk
@@ -147,6 +174,7 @@ jobs:
   android-tests:
     name: Android Tests
     needs: build-native-libs
+    if: ${{ !cancelled() && needs.build-native-libs.result == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
