@@ -23,7 +23,8 @@ the app as a game did not activate that mode for Ruffle; ordinary floating mode 
 The application ID is `rs.ruffle.kabu`, so this build can coexist with the general Ruffle app.
 The app label is **卡布**, and CI produces `卡布-<ABI>-release.apk` files in the **kabu-release-apks** artifact.
 Pushes to `kabu` automatically trigger the Build workflow. The `main` branch remains aligned with upstream;
-general Android improvements are maintained on `codex/android-development`.
+general Android improvements are maintained on `base`.
+Release versions use tags; the shared development branch name stays unchanged.
 
 The general Ruffle documentation below applies to the non-Kabu build unless otherwise stated.
 
