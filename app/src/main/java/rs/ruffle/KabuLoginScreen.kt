@@ -587,11 +587,7 @@ private fun LoginField(
 }
 
 @Composable
-private fun AuthorCard(
-    onCopyQq: () -> Unit,
-    onOpenBilibili: () -> Unit,
-    compact: Boolean
-) {
+private fun AuthorCard(onCopyQq: () -> Unit, onOpenBilibili: () -> Unit, compact: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(if (compact) 16.dp else 20.dp),
@@ -631,7 +627,11 @@ private fun AuthorCard(
                     .fillMaxWidth()
                     .background(Color(0x1FF8A72D), RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
-                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
+                style = if (compact) {
+                    MaterialTheme.typography.labelSmall
+                } else {
+                    MaterialTheme.typography.bodySmall
+                },
                 color = Amber,
                 textAlign = TextAlign.Center
             )

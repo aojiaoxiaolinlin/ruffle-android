@@ -14,8 +14,8 @@ import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
-import android.view.KeyEvent
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -25,7 +25,6 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -256,7 +255,17 @@ class PlayerActivity : GameActivity() {
         parent.removeView(placeholder)
         parent.addView(mSurfaceView, index)
         mSurfaceView.setLayoutParams(pars)
-        mSurfaceView.addOnLayoutChangeListener { _, _, _, right, bottom, _, _, oldRight, oldBottom ->
+        mSurfaceView.addOnLayoutChangeListener {
+                _,
+                _,
+                _,
+                right,
+                bottom,
+                _,
+                _,
+                oldRight,
+                oldBottom
+            ->
             if (right != oldRight || bottom != oldBottom) {
                 applyRenderScale()
             }
@@ -270,16 +279,21 @@ class PlayerActivity : GameActivity() {
                     if (event.action == KeyEvent.ACTION_DOWN) {
                         commitText(String(Character.toChars(event.unicodeChar)))
                     }
-                } else if (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) {
+                } else if (event.action == KeyEvent.ACTION_DOWN ||
+                    event.action == KeyEvent.ACTION_UP
+                ) {
                     inputKey(event.keyCode, event.action == KeyEvent.ACTION_DOWN)
                 }
             },
-            done = { setSoftKeyboardVisible(false) },
+            done = { setSoftKeyboardVisible(false) }
         )
-        layout.addView(textInputView, ConstraintLayout.LayoutParams(1, 1).apply {
-            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
-            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-        })
+        layout.addView(
+            textInputView,
+            ConstraintLayout.LayoutParams(1, 1).apply {
+                topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            }
+        )
         layout.findViewById<View>(R.id.button_menu).setOnClickListener {
             setMenuExpanded(!menuExpanded)
         }
@@ -485,7 +499,7 @@ class PlayerActivity : GameActivity() {
         appliedSurfaceWidth = scaledWidth
         appliedSurfaceHeight = scaledHeight
         view.holder.setFixedSize(scaledWidth, scaledHeight)
-        Log.i("ruffle", "Render scale $scale: ${width}x$height -> ${scaledWidth}x${scaledHeight}")
+        Log.i("ruffle", "Render scale $scale: ${width}x$height -> ${scaledWidth}x$scaledHeight")
     }
 
     private fun showPlayerSettings() {
@@ -512,10 +526,18 @@ class PlayerActivity : GameActivity() {
             softFilterScales.indexOf(PlayerSettings.softFilterScale(this)).takeIf { it >= 0 } ?: 1
 
         val frameRates = intArrayOf(
-            PlayerSettings.FRAME_RATE_AUTO, 24, 30, 45, PlayerSettings.MAX_FRAME_RATE
+            PlayerSettings.FRAME_RATE_AUTO,
+            24,
+            30,
+            45,
+            PlayerSettings.MAX_FRAME_RATE
         )
         val frameRateLabels = listOf(
-            getString(R.string.frame_rate_auto_short), "24", "30", "45", "60"
+            getString(R.string.frame_rate_auto_short),
+            "24",
+            "30",
+            "45",
+            "60"
         )
         var selectedFrameRate = frameRates.indexOf(PlayerSettings.frameRate(this))
             .takeIf { it >= 0 } ?: 0
@@ -540,19 +562,24 @@ class PlayerActivity : GameActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        header.addView(TextView(this).apply {
-            text = getString(R.string.player_settings)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(0xFFF7E9D7.toInt())
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(
+            TextView(this).apply {
+                text = getString(R.string.player_settings)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(0xFFF7E9D7.toInt())
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        )
         val share = ImageButton(this).apply {
             setImageResource(R.drawable.ic_share)
             imageTintList = ColorStateList.valueOf(0xFFD7C3AE.toInt())
             contentDescription = getString(R.string.share_diagnostics)
             val ripple = TypedValue()
             theme.resolveAttribute(
-                android.R.attr.selectableItemBackgroundBorderless, ripple, true
+                android.R.attr.selectableItemBackgroundBorderless,
+                ripple,
+                true
             )
             setBackgroundResource(ripple.resourceId)
             setOnClickListener {
@@ -567,13 +594,19 @@ class PlayerActivity : GameActivity() {
             contentDescription = getString(R.string.close_player_settings)
             val ripple = TypedValue()
             theme.resolveAttribute(
-                android.R.attr.selectableItemBackgroundBorderless, ripple, true
+                android.R.attr.selectableItemBackgroundBorderless,
+                ripple,
+                true
             )
             setBackgroundResource(ripple.resourceId)
             setOnClickListener { dialog.dismiss() }
         }
         header.addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
-        panel.addView(header, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        panel.addView(
+            header,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
         val scroll = ScrollView(this).apply {
             isVerticalFadingEdgeEnabled = true
@@ -582,7 +615,11 @@ class PlayerActivity : GameActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        scroll.addView(content, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        scroll.addView(
+            content,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
         panel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         fun addSection(
@@ -593,14 +630,16 @@ class PlayerActivity : GameActivity() {
             hint: String? = null,
             onSelected: (Int) -> Unit
         ) {
-            parent.addView(TextView(this).apply {
-                text = title
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(0xFFE8C68E.toInt())
-                letterSpacing = 0.03f
-                setPadding(dp(2), dp(10), 0, dp(6))
-            })
+            parent.addView(
+                TextView(this).apply {
+                    text = title
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    setTypeface(null, Typeface.BOLD)
+                    setTextColor(0xFFE8C68E.toInt())
+                    letterSpacing = 0.03f
+                    setPadding(dp(2), dp(10), 0, dp(6))
+                }
+            )
             val control = SegmentedControl(this)
             control.setOptions(labels, selected, onSelected)
             parent.addView(
@@ -609,12 +648,16 @@ class PlayerActivity : GameActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             if (hint != null) {
-                parent.addView(TextView(this).apply {
-                    text = hint
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                    setTextColor(0x99D7C3AE.toInt())
-                    setPadding(dp(2), dp(6), dp(2), 0)
-                }, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                parent.addView(
+                    TextView(this).apply {
+                        text = hint
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                        setTextColor(0x99D7C3AE.toInt())
+                        setPadding(dp(2), dp(6), dp(2), 0)
+                    },
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
             }
         }
 
@@ -644,52 +687,84 @@ class PlayerActivity : GameActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             addSection(
-                left, getString(R.string.render_scale), scaleLabels, selectedScale
+                left,
+                getString(R.string.render_scale),
+                scaleLabels,
+                selectedScale
             ) { selectedScale = it }
             addSection(
-                left, getString(R.string.stage_quality), qualityLabels, selectedQuality
+                left,
+                getString(R.string.stage_quality),
+                qualityLabels,
+                selectedQuality
             ) { selectedQuality = it }
             addSection(
-                left, getString(R.string.soft_filter_scale), softFilterLabels,
-                selectedSoftFilterScale, getString(R.string.soft_filter_hint)
+                left,
+                getString(R.string.soft_filter_scale),
+                softFilterLabels,
+                selectedSoftFilterScale,
+                getString(R.string.soft_filter_hint)
             ) { selectedSoftFilterScale = it }
             addSection(
-                right, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
+                right,
+                getString(R.string.frame_rate),
+                frameRateLabels,
+                selectedFrameRate,
                 getString(R.string.frame_rate_hint)
             ) { selectedFrameRate = it }
             addSection(
-                right, getString(R.string.graphics_backend), backendLabels, selectedBackend,
+                right,
+                getString(R.string.graphics_backend),
+                backendLabels,
+                selectedBackend,
                 getString(R.string.backend_reload_hint)
             ) { selectedBackend = it }
         } else {
             addSection(
-                content, getString(R.string.render_scale), scaleLabels, selectedScale
+                content,
+                getString(R.string.render_scale),
+                scaleLabels,
+                selectedScale
             ) { selectedScale = it }
             addSection(
-                content, getString(R.string.stage_quality), qualityLabels, selectedQuality
+                content,
+                getString(R.string.stage_quality),
+                qualityLabels,
+                selectedQuality
             ) { selectedQuality = it }
             addSection(
-                content, getString(R.string.soft_filter_scale), softFilterLabels,
-                selectedSoftFilterScale, getString(R.string.soft_filter_hint)
+                content,
+                getString(R.string.soft_filter_scale),
+                softFilterLabels,
+                selectedSoftFilterScale,
+                getString(R.string.soft_filter_hint)
             ) { selectedSoftFilterScale = it }
             addSection(
-                content, getString(R.string.frame_rate), frameRateLabels, selectedFrameRate,
+                content,
+                getString(R.string.frame_rate),
+                frameRateLabels,
+                selectedFrameRate,
                 getString(R.string.frame_rate_hint)
             ) { selectedFrameRate = it }
             addSection(
-                content, getString(R.string.graphics_backend), backendLabels, selectedBackend,
+                content,
+                getString(R.string.graphics_backend),
+                backendLabels,
+                selectedBackend,
                 getString(R.string.backend_reload_hint)
             ) { selectedBackend = it }
         }
 
-        content.addView(TextView(this).apply {
-            text = getString(R.string.diagnostics)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            setTypeface(null, Typeface.BOLD)
-            setTextColor(0xFFE8C68E.toInt())
-            letterSpacing = 0.03f
-            setPadding(dp(2), dp(16), 0, dp(6))
-        })
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.diagnostics)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(0xFFE8C68E.toInt())
+                letterSpacing = 0.03f
+                setPadding(dp(2), dp(16), 0, dp(6))
+            }
+        )
         val diagnosticsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
@@ -700,7 +775,8 @@ class PlayerActivity : GameActivity() {
             setTypeface(null, Typeface.BOLD)
             setTextColor(0xFF2A1800.toInt())
             background = ContextCompat.getDrawable(
-                this@PlayerActivity, R.drawable.settings_apply
+                this@PlayerActivity,
+                R.drawable.settings_apply
             )
             setPadding(dp(8), dp(10), dp(8), dp(10))
             isClickable = true
@@ -716,7 +792,8 @@ class PlayerActivity : GameActivity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             setTextColor(0xFFE8C68E.toInt())
             background = ContextCompat.getDrawable(
-                this@PlayerActivity, R.drawable.settings_cancel
+                this@PlayerActivity,
+                R.drawable.settings_cancel
             )
             setPadding(dp(8), dp(10), dp(8), dp(10))
             isClickable = true
@@ -740,12 +817,16 @@ class PlayerActivity : GameActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
-        content.addView(TextView(this).apply {
-            text = getString(R.string.diagnostics_hint)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            setTextColor(0x99D7C3AE.toInt())
-            setPadding(dp(2), dp(6), dp(2), 0)
-        }, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        content.addView(
+            TextView(this).apply {
+                text = getString(R.string.diagnostics_hint)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                setTextColor(0x99D7C3AE.toInt())
+                setPadding(dp(2), dp(6), dp(2), 0)
+            },
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -758,7 +839,8 @@ class PlayerActivity : GameActivity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setTextColor(0xFFE8C68E.toInt())
             background = ContextCompat.getDrawable(
-                this@PlayerActivity, R.drawable.settings_cancel
+                this@PlayerActivity,
+                R.drawable.settings_cancel
             )
             setPadding(dp(20), dp(10), dp(20), dp(10))
             isClickable = true
@@ -772,7 +854,8 @@ class PlayerActivity : GameActivity() {
             setTypeface(null, Typeface.BOLD)
             setTextColor(0xFF2A1800.toInt())
             background = ContextCompat.getDrawable(
-                this@PlayerActivity, R.drawable.settings_apply
+                this@PlayerActivity,
+                R.drawable.settings_apply
             )
             setPadding(dp(22), dp(10), dp(22), dp(10))
             isClickable = true
@@ -794,7 +877,9 @@ class PlayerActivity : GameActivity() {
                 PlayerSettings.setGraphicsBackend(this@PlayerActivity, selectedBackend)
                 if (selectedBackend != previousBackend) {
                     Toast.makeText(
-                        this@PlayerActivity, R.string.backend_reload_hint, Toast.LENGTH_SHORT
+                        this@PlayerActivity,
+                        R.string.backend_reload_hint,
+                        Toast.LENGTH_SHORT
                     ).show()
                 }
                 dialog.dismiss()
@@ -814,7 +899,11 @@ class PlayerActivity : GameActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         )
-        panel.addView(footer, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        panel.addView(
+            footer,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
 
         dialog.setContentView(panel)
         dialog.setCanceledOnTouchOutside(true)

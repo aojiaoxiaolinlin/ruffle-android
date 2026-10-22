@@ -17,7 +17,9 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
 import java.io.File
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -32,8 +34,13 @@ class SystemKeyboardTest {
         val commits = mutableListOf<String>()
         val deletes = mutableListOf<Pair<Int, Int>>()
         instrumentation.runOnMainSync {
-            val view = GameTextInputView(context, commits::add,
-                { before, after, _ -> deletes.add(before to after) }, {}, {})
+            val view = GameTextInputView(
+                context,
+                commits::add,
+                { before, after, _ -> deletes.add(before to after) },
+                {},
+                {}
+            )
             val info = EditorInfo()
             val connection = view.onCreateInputConnection(info)
             assertTrue(info.imeOptions and EditorInfo.IME_FLAG_NO_FULLSCREEN != 0)
@@ -58,9 +65,11 @@ class SystemKeyboardTest {
         val movie = File(context.cacheDir, "system-keyboard.swf")
         instrumentation.context.resources.openRawResource(rs.ruffle.test.R.raw.system_keyboard)
             .use { movie.writeBytes(it.readBytes()) }
-        context.startActivity(Intent(context, PlayerActivity::class.java)
-            .setData(Uri.fromFile(movie)).putExtra("traceOutput", trace.absolutePath)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        context.startActivity(
+            Intent(context, PlayerActivity::class.java)
+                .setData(Uri.fromFile(movie)).putExtra("traceOutput", trace.absolutePath)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
         waitFor { trace.readText().contains("ime-ready") }
         SystemClock.sleep(500)
         var bounds = Rect()
@@ -72,13 +81,16 @@ class SystemKeyboardTest {
             bounds = Rect(loc[0], loc[1], loc[0] + surface.width, loc[1] + surface.height)
         }
         val scale = minOf(bounds.width() / 640f, bounds.height() / 360f)
-        device.click((bounds.centerX() - 240 * scale).toInt(),
-            (bounds.centerY() - 125 * scale).toInt())
+        device.click(
+            (bounds.centerX() - 240 * scale).toInt(),
+            (bounds.centerY() - 125 * scale).toInt()
+        )
         waitFor { keyboardVisible() }
         assertSurface(bounds)
         lateinit var connection: InputConnection
         onPlayer { activity ->
-            val endpoint = descendants(activity.window.decorView).filterIsInstance<GameTextInputView>().first()
+            val endpoint = descendants(activity.window.decorView)
+                .filterIsInstance<GameTextInputView>().first()
             connection = endpoint.onCreateInputConnection(EditorInfo())
             connection.setComposingText("nihao", 1)
         }
@@ -100,9 +112,10 @@ class SystemKeyboardTest {
         device.pressBack()
         waitFor { !keyboardVisible() }
         assertSurface(bounds)
-        val scale = minOf(bounds.width() / 640f, bounds.height() / 360f)
-        device.click((bounds.centerX() - 240 * scale).toInt(),
-            (bounds.centerY() - 125 * scale).toInt())
+        device.click(
+            (bounds.centerX() - 240 * scale).toInt(),
+            (bounds.centerY() - 125 * scale).toInt()
+        )
         waitFor { keyboardVisible() }
         assertSurface(bounds)
         instrumentation.runOnMainSync { connection.performEditorAction(EditorInfo.IME_ACTION_DONE) }
@@ -119,19 +132,25 @@ class SystemKeyboardTest {
 
     private fun keyboardVisible(): Boolean {
         var visible = false
-        onPlayer { visible = ViewCompat.getRootWindowInsets(it.window.decorView)
-            ?.isVisible(WindowInsetsCompat.Type.ime()) == true }
+        onPlayer {
+            visible = ViewCompat.getRootWindowInsets(it.window.decorView)
+                ?.isVisible(WindowInsetsCompat.Type.ime()) == true
+        }
         return visible
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {
         yield(view)
-        if (view is ViewGroup) for (i in 0 until view.childCount) yieldAll(descendants(view.getChildAt(i)))
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) yieldAll(descendants(view.getChildAt(i)))
+        }
     }
 
     private fun onPlayer(block: (PlayerActivity) -> Unit) = instrumentation.runOnMainSync {
-        block(ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
-            .filterIsInstance<PlayerActivity>().first())
+        block(
+            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<PlayerActivity>().first()
+        )
     }
 
     private fun waitFor(condition: () -> Boolean) {

@@ -262,7 +262,8 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
                 throw KabuLoginException("游戏登录返回了无效地址")
             }
             val query = uri.rawQuery.orEmpty()
-            if (uri.scheme !in setOf("http", "https") || uri.host != "enter.wanwan4399.com" ||
+            if (uri.scheme !in setOf("http", "https") ||
+                uri.host != "enter.wanwan4399.com" ||
                 uri.path != "/bin-debug/KBgameindex.html" ||
                 query.split('&').none { it.startsWith("sig=") && it.length > 4 }
             ) {

@@ -14,7 +14,7 @@ internal class GameTextInputView(
     private val commit: (String) -> Unit,
     private val delete: (Int, Int, Boolean) -> Unit,
     private val key: (KeyEvent) -> Unit,
-    private val done: () -> Unit,
+    private val done: () -> Unit
 ) : View(context) {
     init {
         isFocusable = true
@@ -52,15 +52,30 @@ internal class GameTextInputView(
                 if (!editable.isNullOrEmpty()) {
                     return super.deleteSurroundingText(beforeLength, afterLength)
                 }
-                if (!closing) delete(beforeLength.coerceAtLeast(0), afterLength.coerceAtLeast(0), false)
+                if (!closing) {
+                    delete(
+                        beforeLength.coerceAtLeast(0),
+                        afterLength.coerceAtLeast(0),
+                        false
+                    )
+                }
                 return true
             }
 
-            override fun deleteSurroundingTextInCodePoints(beforeLength: Int, afterLength: Int): Boolean {
+            override fun deleteSurroundingTextInCodePoints(
+                beforeLength: Int,
+                afterLength: Int
+            ): Boolean {
                 if (!editable.isNullOrEmpty()) {
                     return super.deleteSurroundingTextInCodePoints(beforeLength, afterLength)
                 }
-                if (!closing) delete(beforeLength.coerceAtLeast(0), afterLength.coerceAtLeast(0), true)
+                if (!closing) {
+                    delete(
+                        beforeLength.coerceAtLeast(0),
+                        afterLength.coerceAtLeast(0),
+                        true
+                    )
+                }
                 return true
             }
 
