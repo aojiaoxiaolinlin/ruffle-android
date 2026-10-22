@@ -54,6 +54,7 @@
         </activity>
         <activity
             android:name=".PlayerActivity"
+            android:windowSoftInputMode="adjustNothing"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|screenSize"
 

@@ -13,6 +13,16 @@ pub enum RuffleEvent {
         down: bool,
         key_descriptor: KeyDescriptor,
     },
+    TextInput(String),
+    DeleteText {
+        before: u32,
+        after: u32,
+        codepoints: bool,
+    },
+    InputKey {
+        code: u32,
+        down: bool,
+    },
     RunContextMenuCallback(usize),
     ClearContextMenu,
     RequestContextMenu,

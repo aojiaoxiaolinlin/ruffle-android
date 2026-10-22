@@ -7,16 +7,32 @@ use ruffle_core::font::FontQuery;
 use url::Url;
 
 pub struct AndroidUiBackend {
+    app: android_activity::AndroidApp,
     fonts: AndroidFonts,
     fallback: NullUiBackend,
 }
 
 impl AndroidUiBackend {
-    pub fn new() -> Self {
+    pub fn new(app: android_activity::AndroidApp) -> Self {
         Self {
+            app,
             fonts: AndroidFonts::new(),
             fallback: NullUiBackend::new(),
         }
+    }
+}
+
+impl AndroidUiBackend {
+    fn set_keyboard_visible(&self, visible: bool) {
+        let _ = crate::with_activity(&self.app, |env, activity| {
+            env.call_method(
+                activity,
+                jni::jni_str!("setSoftKeyboardVisible"),
+                jni::jni_sig!((bool) -> void),
+                &[jni::objects::JValue::Bool(visible)],
+            )
+            .map(|_| ())
+        });
     }
 }
 
@@ -59,10 +75,10 @@ impl UiBackend for AndroidUiBackend {
         self.fallback.message(message);
     }
     fn open_virtual_keyboard(&self) {
-        self.fallback.open_virtual_keyboard();
+        self.set_keyboard_visible(true);
     }
     fn close_virtual_keyboard(&self) {
-        self.fallback.close_virtual_keyboard();
+        self.set_keyboard_visible(false);
     }
     fn language(&self) -> LanguageIdentifier {
         self.fallback.language()

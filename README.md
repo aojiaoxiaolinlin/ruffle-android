@@ -7,9 +7,18 @@ It obtains a fresh `auth_string` using the same protocol as `kabu-login`, then o
 Passwords are not saved to files, preferences or saved instance state, and are not logged.
 Accounts requiring a CAPTCHA cannot complete verification in this shortcut login screen.
 
-The keyboard and menu buttons form a small floating toolbar. Drag either button to move it;
+The menu button opens a small floating toolbar. Drag it to move the toolbar;
 it docks to the nearest side and stays inside the display's safe area. The menu includes **重新加载**,
 which restarts the player with the same game and launch parameters. Exit returns to the login screen.
+
+Tap a Flash text field to open the phone's input method.
+Chinese composition, committed Unicode text, backspace and forward delete are supported.
+The keyboard overlays the game without resizing its render surface. For a movable small
+keyboard, enable **悬浮键盘** / **游戏键盘** in your input method's own menu; its appearance
+and availability depend on the installed input method. Back or the IME's Done button hides it.
+Baidu Input Honor's dedicated game keyboard is a separate mode controlled by the input method's
+application recognition. On the tested device, enabling its game-keyboard switch and declaring
+the app as a game did not activate that mode for Ruffle; ordinary floating mode remains available.
 
 The application ID is `rs.ruffle.kabu`, so this build can coexist with the general Ruffle app.
 The app label is **卡布**, and CI produces `卡布-<ABI>-release.apk` files in the **kabu-release-apks** artifact.
@@ -87,11 +96,10 @@ and `SIGNING_STORE_PASSWORD` as repository secrets.
 
 In no particular order:
 
-- [ ] Ability to show the built-in virtual keyboard (softinput), for text input
+- [X] Ability to show the system virtual keyboard (softinput), for text input
 - [ ] Controller/Gamepad input?
   - Mapped to key presses and/or virtual mouse pointer
 - [ ] Own custom keyboard overlay, maybe even per-content configs
-  - Not an overlay, and not per-content, but custom keyboard is there
 - [ ] Error/panic handling
 - [ ] Loading "animation" (spinner)
 - [ ] Alternative audio backend (OpenSL ES) for Android < 8
@@ -113,7 +121,7 @@ In no particular order:
 - [X] Navigator backend (fetch, open browser)
   - Opening links works at least
 - [X] Touch/mouse input
-- [X] Keyboard input: only with physical keyboard connected or through `scrcpy`
+- [X] Keyboard input: physical keyboard, `scrcpy`, and the system input method
   - This was needed: https://github.com/rust-windowing/winit/pull/2226
 - [X] Split into a separate repo
 - [X] Add ability to Open SWF by entered/pasted URL (or even directly from clipboard)

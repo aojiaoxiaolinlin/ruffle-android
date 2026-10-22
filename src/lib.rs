@@ -44,7 +44,7 @@ use url::Url;
 use ruffle_common::duration::FloatDuration;
 use ruffle_core::{
     backend::navigator::OwnedFuture,
-    events::{LogicalKey, MouseButton, PlayerEvent},
+    events::{LogicalKey, MouseButton, NamedKey, PlayerEvent, TextControlCode},
     tag_utils::SwfMovie,
     Player, PlayerBuilder, ViewportDimensions,
 };
@@ -450,7 +450,7 @@ async fn run(app: AndroidApp) {
                                             .with_audio(AAudioAudioBackend::new().unwrap())
                                             .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
                                             .with_navigator(navigator)
-                                            .with_ui(ui::AndroidUiBackend::new())
+                                            .with_ui(ui::AndroidUiBackend::new(app.clone()))
                                             .with_log(FileLogBackend::new(trace_output.as_deref()))
                                             .with_video(
                                                 ruffle_video_software::backend::SoftwareVideoBackend::new(),
@@ -667,6 +667,95 @@ async fn run(app: AndroidApp) {
                                 player.player.lock().unwrap().handle_event(event);
                             }
                         }
+                    }
+                }
+                RuffleEvent::TextInput(text) => {
+                    if let Some(player) = playerbox.as_ref() {
+                        let mut player = player.player.lock().unwrap();
+                        for codepoint in text.chars() {
+                            player.handle_event(PlayerEvent::TextInput { codepoint });
+                        }
+                        needs_redraw = true;
+                    }
+                }
+                RuffleEvent::DeleteText {
+                    before,
+                    after,
+                    codepoints,
+                } => {
+                    if let Some(player) = playerbox.as_ref() {
+                        let mut player = player.player.lock().unwrap();
+                        // Android's legacy delete API counts UTF-16 units; Flash deletes
+                        // whole Unicode characters. Convert using the actual Flash caret.
+                        let (before, after) = if codepoints {
+                            (before, after)
+                        } else {
+                            player.mutate_with_update_context(|context| {
+                                let Some(field) = context.focus_tracker.get_as_edit_text() else {
+                                    return (0, 0);
+                                };
+                                let Some(selection) = field.selection() else {
+                                    return (0, 0);
+                                };
+                                let text = field.text();
+                                let left = text
+                                    .slice(..selection.start())
+                                    .unwrap_or_default()
+                                    .to_utf8_lossy();
+                                let right = text
+                                    .slice(selection.end()..)
+                                    .unwrap_or_default()
+                                    .to_utf8_lossy();
+                                (
+                                    count_utf16_characters(left.chars().rev(), before),
+                                    count_utf16_characters(right.chars(), after),
+                                )
+                            })
+                        };
+                        for (count, code) in [
+                            (before, TextControlCode::Backspace),
+                            (after, TextControlCode::Delete),
+                        ] {
+                            for _ in 0..count {
+                                player.handle_event(PlayerEvent::TextControl { code });
+                            }
+                        }
+                        needs_redraw = true;
+                    }
+                }
+                RuffleEvent::InputKey { code, down } => {
+                    if let (Some(player), Some(key)) = (
+                        playerbox.as_ref(),
+                        keycodes::android_keycode_to_ruffle_key_descriptor(code.into()),
+                    ) {
+                        let mut player = player.player.lock().unwrap();
+                        player.handle_event(if down {
+                            PlayerEvent::KeyDown { key }
+                        } else {
+                            PlayerEvent::KeyUp { key }
+                        });
+                        if down {
+                            let control = match key.logical_key {
+                                LogicalKey::Named(NamedKey::Backspace) => {
+                                    Some(TextControlCode::Backspace)
+                                }
+                                LogicalKey::Named(NamedKey::Delete) => {
+                                    Some(TextControlCode::Delete)
+                                }
+                                LogicalKey::Named(NamedKey::Enter) => Some(TextControlCode::Enter),
+                                LogicalKey::Named(NamedKey::ArrowLeft) => {
+                                    Some(TextControlCode::MoveLeft)
+                                }
+                                LogicalKey::Named(NamedKey::ArrowRight) => {
+                                    Some(TextControlCode::MoveRight)
+                                }
+                                _ => None,
+                            };
+                            if let Some(code) = control {
+                                player.handle_event(PlayerEvent::TextControl { code });
+                            }
+                        }
+                        needs_redraw = true;
                     }
                 }
                 RuffleEvent::RunContextMenuCallback(index) => {
@@ -1121,4 +1210,79 @@ fn android_main(app: AndroidApp) {
     // Must happen before any reqwest client is built (e.g. by the navigator backend).
     let _ = rustls::crypto::ring::default_provider().install_default();
     run(app);
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_commitText<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    text: JString<'local>,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let text = text.try_to_string(env)?;
+            let sender: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            sender.send(RuffleEvent::TextInput(text));
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_deleteText<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    before: jint,
+    after: jint,
+    codepoints: sys::jboolean,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let sender: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            sender.send(RuffleEvent::DeleteText {
+                before: before.max(0) as u32,
+                after: after.max(0) as u32,
+                codepoints,
+            });
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+#[no_mangle]
+#[allow(clippy::missing_safety_doc)]
+pub unsafe extern "C" fn Java_rs_ruffle_PlayerActivity_inputKey<'local>(
+    mut unowned_env: EnvUnowned<'local>,
+    this: JObject<'local>,
+    code: jint,
+    down: sys::jboolean,
+) {
+    unowned_env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let sender: MutexGuard<EventSender> =
+                unsafe { env.get_rust_field(&this, jni_str!("eventLoopHandle")) }?;
+            sender.send(RuffleEvent::InputKey {
+                code: code as u32,
+                down,
+            });
+            Ok(())
+        })
+        .resolve::<ThrowRuntimeExAndDefault>()
+}
+
+// Round requests ending within a surrogate pair to the whole character.
+fn count_utf16_characters(chars: impl Iterator<Item = char>, mut units: u32) -> u32 {
+    let mut count = 0;
+    for c in chars {
+        if units == 0 {
+            break;
+        }
+        units = units.saturating_sub(c.len_utf16() as u32);
+        count += 1;
+    }
+    count
 }
