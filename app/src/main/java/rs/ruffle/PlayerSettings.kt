@@ -44,9 +44,8 @@ internal object PlayerSettings {
             .apply()
     }
 
-    fun stageQuality(context: Context): Int =
-        prefs(context).getInt(KEY_STAGE_QUALITY, QUALITY_LOW)
-            .coerceIn(QUALITY_LOW, QUALITY_HIGH)
+    fun stageQuality(context: Context): Int = prefs(context).getInt(KEY_STAGE_QUALITY, QUALITY_LOW)
+        .coerceIn(QUALITY_LOW, QUALITY_HIGH)
 
     fun setStageQuality(context: Context, quality: Int) {
         prefs(context).edit()
@@ -68,9 +67,8 @@ internal object PlayerSettings {
      * Playback frame rate override. [FRAME_RATE_AUTO] follows the SWF;
      * any other value locks playback to that many frames per second.
      */
-    fun frameRate(context: Context): Int =
-        prefs(context).getInt(KEY_FRAME_RATE, FRAME_RATE_AUTO)
-            .coerceIn(FRAME_RATE_AUTO, MAX_FRAME_RATE)
+    fun frameRate(context: Context): Int = prefs(context).getInt(KEY_FRAME_RATE, FRAME_RATE_AUTO)
+        .coerceIn(FRAME_RATE_AUTO, MAX_FRAME_RATE)
 
     fun setFrameRate(context: Context, frameRate: Int) {
         prefs(context).edit()

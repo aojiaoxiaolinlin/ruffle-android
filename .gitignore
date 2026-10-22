@@ -11,3 +11,6 @@ local.properties
 /target
 *.jks
 /build-local.cmd
+
+/.local/
+/.cargo/config.toml

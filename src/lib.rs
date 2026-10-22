@@ -83,10 +83,31 @@ impl PlayerId {
 /// Handling too many in one frame causes large memory spikes in the Adreno
 /// driver, so spread a burst over a few frames instead of exhausting memory.
 const MAX_EVENTS_PER_ITERATION: usize = 8;
+const DETAILED_DIAGNOSTICS: bool = cfg!(feature = "diagnostics");
+const PERF_LOG_INTERVAL: Duration = if DETAILED_DIAGNOSTICS {
+    Duration::from_secs(1)
+} else {
+    Duration::from_secs(5)
+};
 
 /// Set once the player starts, so the panic hook can persist its message even
 /// when Android logcat output is encrypted by the vendor.
 static PANIC_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+fn process_memory_summary() -> String {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    let fields: Vec<_> = status
+        .lines()
+        .filter(|line| {
+            [
+                "VmRSS:", "VmHWM:", "RssAnon:", "RssFile:", "VmSwap:", "Threads:",
+            ]
+            .iter()
+            .any(|key| line.starts_with(key))
+        })
+        .collect();
+    format!("process-memory: {}", fields.join("; "))
+}
 
 fn stage_quality_from_int(value: i32) -> StageQuality {
     match value {
@@ -114,9 +135,24 @@ pub struct EventSender {
 
 impl EventSender {
     pub fn send(&self, event: RuffleEvent) {
-        if self.sender.send(event).is_ok() {
+        if send_event_or_keep_local_task(&self.sender, event) {
             self.waker.wake();
         }
+    }
+}
+
+/// A local task must be dropped on the thread that spawned it. During Android
+/// shutdown a Tokio worker may wake a task after the event receiver is gone.
+/// There is no owner thread left to dispose of that task, so leave it for
+/// process teardown rather than aborting in async-task's thread check.
+fn send_event_or_keep_local_task(sender: &Sender<RuffleEvent>, event: RuffleEvent) -> bool {
+    match sender.send(event) {
+        Ok(()) => true,
+        Err(std::sync::mpsc::SendError(RuffleEvent::TaskPoll(task))) => {
+            std::mem::forget(task);
+            false
+        }
+        Err(_) => false,
     }
 }
 
@@ -345,10 +381,11 @@ async fn run(app: AndroidApp) {
                                     .unwrap();
                                 }
                             } else {
-                                let (url, bytes, stage_quality, graphics_backend, frame_rate_override, soft_filter_scale) = with_activity(&app, |env, activity| {
+                                let (url, bytes, base_url, stage_quality, graphics_backend, frame_rate_override, soft_filter_scale) = with_activity(&app, |env, activity| {
                                     (
                                         JavaInterface::get_swf_uri(env, activity),
                                         JavaInterface::get_swf_bytes(env, activity),
+                                        JavaInterface::get_base_url(env, activity),
                                         JavaInterface::get_stage_quality(env, activity),
                                         JavaInterface::get_graphics_backend(env, activity),
                                         JavaInterface::get_frame_rate_override(env, activity),
@@ -382,7 +419,7 @@ async fn run(app: AndroidApp) {
                                 // some devices but currently crashes in the
                                 // Adreno 750 driver while recording command
                                 // buffers, so it is opt-in from the settings.
-                                let renderer = if graphics_backend == 1 {
+                                let mut renderer = if graphics_backend == 1 {
                                     match create_renderer(wgpu::Backends::VULKAN) {
                                         Ok(renderer) => {
                                             log::info!("Using wgpu Vulkan backend (experimental)");
@@ -399,6 +436,7 @@ async fn run(app: AndroidApp) {
                                     log::info!("Using wgpu GLES backend");
                                     create_renderer(wgpu::Backends::GL).unwrap()
                                 };
+                                renderer.set_quality_limit(Some(stage_quality_from_int(stage_quality)));
                                 let soft_filter_scale = soft_filter_scale as u32;
                                 if !renderer.set_soft_filter_scale(soft_filter_scale) {
                                     log::warn!(
@@ -411,6 +449,10 @@ async fn run(app: AndroidApp) {
                                     "soft filter scale: {soft_filter_scale}%"
                                 );
                                 let movie_url = Url::parse(&url).unwrap();
+                                let base_url = base_url
+                                    .and_then(|base| Url::parse(&base).ok())
+                                    .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())
+                                    .unwrap_or_else(|| movie_url.clone());
                                 let player_id = PlayerId::new();
 
                                 let future_spawner = AndroidExecutor {
@@ -419,7 +461,7 @@ async fn run(app: AndroidApp) {
                                 };
 
                                 let navigator = ExternalNavigatorBackend::new(
-                                    movie_url.clone(),
+                                    base_url,
                                     None,
                                     None,
                                     future_spawner,
@@ -451,6 +493,7 @@ async fn run(app: AndroidApp) {
 
                                 let player = &playerbox.as_ref().unwrap().player;
                                 let mut player_lock = player.lock().unwrap();
+                                player_lock.set_render_cache_idle_limit(Some(std::time::Duration::from_secs(90)));
                                 let renderer_info = player_lock.renderer_mut().debug_info();
                                 log::info!(target: "ruffle", "renderer:\n{renderer_info}");
                                 let render_scale =
@@ -773,7 +816,14 @@ async fn run(app: AndroidApp) {
                 }
                 RuffleEvent::SetQuality(quality) => {
                     if let Some(player) = playerbox.as_ref() {
-                        player.player.lock().unwrap().set_quality(quality);
+                        let mut player = player.player.lock().unwrap();
+                        if let Some(renderer) = <dyn Any>::downcast_mut::<
+                            WgpuRenderBackend<SwapChainTarget>,
+                        >(player.renderer_mut())
+                        {
+                            renderer.set_quality_limit(Some(quality));
+                        }
+                        player.set_quality(quality);
                     }
                 }
                 RuffleEvent::SetFrameRate(frame_rate) => {
@@ -843,17 +893,19 @@ async fn run(app: AndroidApp) {
                         let pressure_flushes_this_frame =
                             pressure_flushes.saturating_sub(last_pressure_flushes);
                         last_pressure_flushes = pressure_flushes;
-                        if perf_renders == 1 || perf_renders % 24 == 0 {
+                        if DETAILED_DIAGNOSTICS
+                            && (perf_renders == 1 || perf_renders.is_multiple_of(24))
+                        {
                             let stats = renderer.bitmap_texture_stats();
                             last_bitmap_uploaded_bytes = stats.uploaded_bytes;
                             last_bitmap_target_bytes = stats.target_bytes;
                             last_bitmap_cache_bytes = stats.cache_bytes;
                         }
-                        if render_elapsed >= Duration::from_millis(120) {
+                        if DETAILED_DIAGNOSTICS && render_elapsed >= Duration::from_millis(120) {
                             let (main, _) = renderer.scratch_texture_stats();
                             let bitmaps = renderer.bitmap_texture_stats();
                             let slow_line = format!(
-                                "slow-render: {:.1}ms dt={}us tex_pool={:.1}MiB scratch_created={} scratch_created_bytes={:.1}MiB scratch_flushes={} deferred={} fallback={} cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
+                                "slow-render: {:.1}ms dt={}us tex_pool={:.1}MiB scratch_created={} scratch_created_bytes={:.1}MiB scratch_flushes={} deferred={} fallback={} cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB scratch_top={}",
                                 render_elapsed.as_secs_f64() * 1000.0,
                                 dt,
                                 last_texture_pool_bytes as f64 / (1024.0 * 1024.0),
@@ -865,6 +917,7 @@ async fn run(app: AndroidApp) {
                                 bitmaps.cache_bytes as f64 / (1024.0 * 1024.0),
                                 bitmaps.uploaded_bytes as f64 / (1024.0 * 1024.0),
                                 bitmaps.target_bytes as f64 / (1024.0 * 1024.0),
+                                renderer.scratch_creation_summary(),
                             );
                             log::info!(target: "ruffle", "{slow_line}");
                             if let Some(file) = &mut perf_file {
@@ -877,12 +930,38 @@ async fn run(app: AndroidApp) {
             }
         }
 
-        if perf_window_start.elapsed() >= Duration::from_secs(1) {
+        if perf_window_start.elapsed() >= PERF_LOG_INTERVAL {
+            if DETAILED_DIAGNOSTICS {
+                // Persist renderer details here: some vendors encrypt native logcat.
+                if let Some(player) = playerbox.as_ref() {
+                    if let Ok(mut player) = player.player.lock() {
+                        let core_memory = player.memory_diagnostic_summary();
+                        if let Some(file) = &mut perf_file {
+                            let _ = writeln!(file, "{core_memory}");
+                        }
+                        if let Some(renderer) = <dyn Any>::downcast_mut::<
+                            WgpuRenderBackend<SwapChainTarget>,
+                        >(player.renderer_mut())
+                        {
+                            let summary = renderer.memory_diagnostic_summary();
+                            log::info!(target: "ruffle", "{summary}");
+                            if let Some(file) = &mut perf_file {
+                                let _ = writeln!(file, "{summary}");
+                            }
+                        }
+                    }
+                }
+                let memory = process_memory_summary();
+                if let Some(file) = &mut perf_file {
+                    let _ = writeln!(file, "{memory}");
+                }
+            }
             let elapsed = perf_window_start.elapsed().as_secs_f64();
             let tick_avg = perf_tick_time.as_secs_f64() * 1000.0 / f64::from(perf_ticks.max(1));
             let render_avg =
                 perf_render_time.as_secs_f64() * 1000.0 / f64::from(perf_renders.max(1));
-            let perf_line = format!(
+            let perf_line = if DETAILED_DIAGNOSTICS {
+                format!(
                 "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB cab={:.1}MiB uploaded={:.1}MiB targets={:.1}MiB",
                 perf_ticks,
                 perf_renders,
@@ -895,7 +974,16 @@ async fn run(app: AndroidApp) {
                 last_bitmap_cache_bytes as f64 / (1024.0 * 1024.0),
                 last_bitmap_uploaded_bytes as f64 / (1024.0 * 1024.0),
                 last_bitmap_target_bytes as f64 / (1024.0 * 1024.0),
-            );
+            )
+            } else {
+                format!(
+                    "perf: ticks={} renders={} ({:.1} fps) tick_avg={:.1}ms tick_max={:.1}ms render_avg={:.1}ms render_max={:.1}ms tex_pool={:.1}MiB",
+                    perf_ticks, perf_renders, f64::from(perf_renders) / elapsed,
+                    tick_avg, perf_tick_max.as_secs_f64() * 1000.0,
+                    render_avg, perf_render_max.as_secs_f64() * 1000.0,
+                    last_texture_pool_bytes as f64 / 1048576.0,
+                )
+            };
             log::info!(target: "ruffle", "{perf_line}");
             if let Some(file) = &mut perf_file {
                 let _ = writeln!(file, "{perf_line}");
@@ -1141,6 +1229,7 @@ fn native_init(env: &mut Env, class: &JClass, crash_callback: &JObject) -> jni::
                 thread, message, backtrace
             ),
         };
+        let full = format!("{full}\n{}", process_memory_summary());
         log::error!(target: "panic","{}", full);
 
         // Persist the panic for devices whose logcat is encrypted. A dedicated

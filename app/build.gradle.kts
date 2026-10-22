@@ -24,10 +24,17 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = if (project.hasProperty("localBuild")) {
+        applicationId = if (project.hasProperty("diagnosticBuild")) {
+            "rs.ruffle.diagnostics"
+        } else if (project.hasProperty("localBuild")) {
             "rs.ruffle.local"
         } else {
             "rs.ruffle"
+        }
+        manifestPlaceholders["appLabel"] = if (project.hasProperty("diagnosticBuild")) {
+            "Ruffle (Diagnostics)"
+        } else {
+            "@string/app_name"
         }
         minSdk = 26
         targetSdk = 35
@@ -61,12 +68,19 @@ android {
 
     buildTypes {
         release {
+            if (project.hasProperty("diagnosticBuild")) {
+                isDebuggable = true
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = if (project.hasProperty("diagnosticBuild")) {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.findByName("release")
+            }
         }
     }
 
@@ -171,6 +185,9 @@ cargoNdk {
     module = "."
     apiLevel = 26
     buildType = "release"
+    if (project.hasProperty("diagnosticBuild")) {
+        extraCargoBuildArguments = arrayListOf("--features", "diagnostics")
+    }
 
     if (localProperties.hasProperty("ndkTargets")) {
         targets = ArrayList(localProperties.propertyList("ndkTargets"))

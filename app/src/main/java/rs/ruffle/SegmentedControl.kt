@@ -41,7 +41,9 @@ internal class SegmentedControl(context: Context) : LinearLayout(context) {
                 isClickable = true
                 isFocusable = true
                 layoutParams = LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
                 ).apply {
                     marginStart = if (index == 0) 0 else dp(2)
                 }
@@ -70,6 +72,5 @@ internal class SegmentedControl(context: Context) : LinearLayout(context) {
         }
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }

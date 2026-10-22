@@ -8,9 +8,12 @@ fun isBaseUrlValid(value: String): Boolean {
     if (text.isEmpty()) return true
     return try {
         val uri = URI(text)
-        (uri.scheme.equals("http", ignoreCase = true) ||
-            uri.scheme.equals("https", ignoreCase = true)) &&
-            !uri.host.isNullOrEmpty() && uri.port in -1..65535
+        (
+            uri.scheme.equals("http", ignoreCase = true) ||
+                uri.scheme.equals("https", ignoreCase = true)
+            ) &&
+            !uri.host.isNullOrEmpty() &&
+            uri.port in -1..65535
     } catch (_: URISyntaxException) {
         false
     }

@@ -44,12 +44,7 @@ private val PanicCard = Color(0xF21B1712.toInt())
 private val PanicDark = Color(0xFF2A1800.toInt())
 
 @Composable
-fun PanicScreen(
-    message: String,
-    onShare: () -> Unit,
-    onCopy: () -> Unit,
-    onClose: () -> Unit
-) {
+fun PanicScreen(message: String, onShare: () -> Unit, onCopy: () -> Unit, onClose: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()

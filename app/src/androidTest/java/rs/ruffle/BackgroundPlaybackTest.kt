@@ -75,7 +75,8 @@ class BackgroundPlaybackTest {
             if (player != null) {
                 val insets = ViewCompat.getRootWindowInsets(player.window.decorView)
                 ready = player.resources.configuration.orientation ==
-                    Configuration.ORIENTATION_LANDSCAPE && insets != null &&
+                    Configuration.ORIENTATION_LANDSCAPE &&
+                    insets != null &&
                     !insets.isVisible(WindowInsetsCompat.Type.statusBars()) &&
                     !insets.isVisible(WindowInsetsCompat.Type.navigationBars())
             }
