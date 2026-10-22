@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -25,6 +26,7 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupMenu
@@ -48,6 +50,8 @@ class PlayerActivity : GameActivity() {
     private var toolbarOnRight = false
     private var toolbarPosition = 0.5f
     private var menuExpanded = false
+    private var toolbarDragging = false
+    private var toolbarIconResource = 0
     private lateinit var textInputView: GameTextInputView
 
     @Suppress("unused")
@@ -231,6 +235,9 @@ class PlayerActivity : GameActivity() {
     }
 
     override fun onCreateSurfaceView() {
+        menuExpanded = false
+        toolbarDragging = false
+        toolbarIconResource = 0
         val inflater = layoutInflater
 
         @SuppressLint("InflateParams")
@@ -334,25 +341,30 @@ class PlayerActivity : GameActivity() {
         var startY = 0f
         var startMarginX = 0
         var startMarginY = 0
-        var dragging = false
         val listener = View.OnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.rawX
                     startY = event.rawY
                     val params = toolbar.layoutParams as? ConstraintLayout.LayoutParams
-                    startMarginX = params?.marginStart ?: toolbar.left
+                    startMarginX = params?.leftMargin ?: toolbar.left
                     startMarginY = params?.topMargin ?: toolbar.top
-                    dragging = false
+                    toolbarDragging = false
                     view.isPressed = true
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (abs(event.rawX - startX) > slop || abs(event.rawY - startY) > slop) {
-                        dragging = true
+                        if (!toolbarDragging) {
+                            // Keep the grab point near the handle's centre when
+                            // revealing the full button for the drag.
+                            startMarginX -= (view.width - toolbar.width) / 2
+                            toolbarDragging = true
+                            updateToolbarAppearance()
+                        }
                         view.isPressed = false
                     }
-                    if (dragging) {
+                    if (toolbarDragging) {
                         val desiredX = startMarginX + event.rawX - startX
                         val desiredY = startMarginY + event.rawY - startY
                         var x = desiredX
@@ -369,7 +381,7 @@ class PlayerActivity : GameActivity() {
                         // game SurfaceView on Adreno devices.
                         moveToolbarTo(x.toInt(), y.toInt())
                         toolbarOnRight =
-                            x + toolbar.width / 2f > layout.width / 2f
+                            x + view.width / 2f > layout.width / 2f
                         toolbarPosition =
                             (y / layout.height.coerceAtLeast(1)).coerceIn(0f, 1f)
                     }
@@ -377,7 +389,8 @@ class PlayerActivity : GameActivity() {
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     view.isPressed = false
-                    if (dragging) {
+                    if (toolbarDragging) {
+                        toolbarDragging = false
                         positionToolbar()
                     } else if (event.actionMasked == MotionEvent.ACTION_UP) {
                         view.performClick()
@@ -389,6 +402,21 @@ class PlayerActivity : GameActivity() {
         }
         layout.findViewById<View>(R.id.button_menu).setOnTouchListener(listener)
         layout.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> positionToolbar() }
+        toolbar.addOnLayoutChangeListener {
+                _,
+                left,
+                top,
+                right,
+                bottom,
+                oldLeft,
+                oldTop,
+                oldRight,
+                oldBottom
+            ->
+            if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+                positionToolbar()
+            }
+        }
         // The first post can run before the button has a measured size; wait
         // for the first real layout before applying the saved position.
         toolbar.viewTreeObserver.addOnGlobalLayoutListener(
@@ -409,7 +437,6 @@ class PlayerActivity : GameActivity() {
         menuExpanded = expanded
         val actions = findViewById<View>(R.id.menu_actions)
         val toggle = findViewById<ImageButton>(R.id.button_menu)
-        toggle.setImageResource(if (expanded) R.drawable.ic_close else R.drawable.ic_menu)
         toggle.contentDescription = getString(
             if (expanded) R.string.close_player_menu else R.string.player_menu
         )
@@ -417,6 +444,7 @@ class PlayerActivity : GameActivity() {
         actions.animate().cancel()
         if (expanded) {
             actions.visibility = View.VISIBLE
+            positionToolbar()
             actions.alpha = 0f
             actions.translationY = -offset
             actions.animate().alpha(1f).translationY(0f).setDuration(140).start()
@@ -432,6 +460,58 @@ class PlayerActivity : GameActivity() {
         }
     }
 
+    private fun toolbarHalfHidden(): Boolean = !menuExpanded &&
+        !toolbarDragging &&
+        findViewById<View>(R.id.menu_actions).visibility == View.GONE
+
+    /** Clip the off-screen half in a narrow container, including near a cutout. */
+    private fun updateToolbarAppearance() {
+        val toolbar = findViewById<View>(R.id.toolbar)
+        val content = findViewById<View>(R.id.toolbar_content)
+        val toggle = findViewById<ImageButton>(R.id.button_menu)
+        val fullWidth = toggle.layoutParams.width
+        val halfHidden = toolbarHalfHidden()
+        val visibleWidth = if (halfHidden) (fullWidth + 1) / 2 else fullWidth
+        if (toolbar.layoutParams.width != visibleWidth) {
+            toolbar.layoutParams = toolbar.layoutParams.apply { width = visibleWidth }
+        }
+        val contentParams = content.layoutParams as FrameLayout.LayoutParams
+        val offset = if (halfHidden && !toolbarOnRight) visibleWidth - fullWidth else 0
+        if (contentParams.leftMargin != offset) {
+            content.layoutParams = contentParams.apply { leftMargin = offset }
+        }
+        val icon = when {
+            menuExpanded -> R.drawable.ic_close
+            !halfHidden -> R.drawable.ic_menu
+            toolbarOnRight -> R.drawable.ic_chevron_left
+            else -> R.drawable.ic_chevron_right
+        }
+        if (toolbarIconResource != icon) {
+            toolbarIconResource = icon
+            toggle.setImageResource(icon)
+        }
+        val smallPadding = (6 * resources.displayMetrics.density).toInt()
+        val fullPadding = (13 * resources.displayMetrics.density).toInt()
+        val leftPadding = if (halfHidden) {
+            smallPadding + if (toolbarOnRight) 0 else fullWidth - visibleWidth
+        } else {
+            fullPadding
+        }
+        val rightPadding = if (halfHidden) {
+            smallPadding + if (toolbarOnRight) fullWidth - visibleWidth else 0
+        } else {
+            fullPadding
+        }
+        if (toggle.paddingLeft != leftPadding || toggle.paddingRight != rightPadding) {
+            toggle.setPadding(leftPadding, fullPadding, rightPadding, fullPadding)
+        }
+        if (Build.VERSION.SDK_INT >= VERSION_CODES.Q && toggle.height > 0) {
+            // The half-handle sits in Android's back-gesture area. Exclude
+            // only its 48dp-high strip so it can still be dragged out.
+            toolbar.systemGestureExclusionRects = listOf(Rect(0, 0, visibleWidth, toggle.height))
+        }
+    }
+
     /**
      * Returns the visible bounds for the toolbar's top-left corner as
      * `[left, top, maxX, maxY]`, excluding system bars, cutouts and the
@@ -441,11 +521,14 @@ class PlayerActivity : GameActivity() {
         val parent = toolbar.parent as? View ?: return null
         if (parent.width == 0 || toolbar.height == 0) return null
         val insets = ViewCompat.getRootWindowInsets(parent)?.getInsets(
-            WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
+            WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars() or
+                WindowInsetsCompat.Type.mandatorySystemGestures()
         )
         val margin = (8 * resources.displayMetrics.density).toInt()
-        val left = (insets?.left ?: 0) + margin
-        val maxX = (parent.width - (insets?.right ?: 0) - toolbar.width - margin)
+        val horizontalMargin = if (toolbarHalfHidden()) 0 else margin
+        val width = toolbar.layoutParams.width
+        val left = (insets?.left ?: 0) + horizontalMargin
+        val maxX = (parent.width - (insets?.right ?: 0) - width - horizontalMargin)
             .coerceAtLeast(left)
         val top = (insets?.top ?: 0) + margin
         val imeBottom = ViewCompat.getRootWindowInsets(parent)
@@ -458,14 +541,16 @@ class PlayerActivity : GameActivity() {
     private fun moveToolbarTo(x: Int, y: Int) {
         val toolbar = findViewById<View>(R.id.toolbar)
         val params = toolbar.layoutParams as? ConstraintLayout.LayoutParams ?: return
-        if (params.marginStart == x && params.topMargin == y) return
-        params.marginStart = x
+        if (params.leftMargin == x && params.topMargin == y) return
+        params.leftMargin = x
         params.topMargin = y
         toolbar.layoutParams = params
         toolbar.requestLayout()
     }
 
     private fun positionToolbar() {
+        if (toolbarDragging) return
+        updateToolbarAppearance()
         val toolbar = findViewById<View>(R.id.toolbar)
         val parent = toolbar.parent as? View ?: return
         val limits = toolbarLimits(toolbar) ?: return
