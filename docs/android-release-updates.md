@@ -46,3 +46,9 @@ sh scripts/build-local-release.sh 26102324 0.261022.124
 4. 检查草稿后公开发布。用户下载对应 APK，直接选择安装/更新，不要先卸载，也不要清除应用数据。
 
 覆盖安装保留应用数据目录，但登录是否仍有效还取决于游戏服务器会话与游戏自身的登录逻辑。当前不包含应用内检查更新/下载界面。
+
+## Build Tools 37 签名校验兼容
+
+Build Tools 36 的 `apksigner verify --print-certs` 使用 `Signer #1 certificate SHA-256 digest:`；Build Tools 37 对同一 APK 输出 `V2 Signer: certificate SHA-256 digest:`。校验脚本兼容编号、SDK 区间和签名方案前缀，并要求所有识别出的 APK 签名指纹都与固定证书一致。来源戳证书不作为应用签名。未识别、指纹不同或 apksigner 验证失败仍会中止发布。
+
+已用同一正式 APK 在本地复现旧脚本于 37.0.0 下误判；修复后正确签名通过，错误预期指纹与诊断包签名均被拒绝。CI 在 APK 构建前运行解析回归测试。
