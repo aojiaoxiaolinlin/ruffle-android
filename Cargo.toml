@@ -37,10 +37,9 @@ ndk = { version = "0.9.0", features = ["audio"] }
 # Have to follow Ruffle with this.
 wgpu = { version = "30.0.1", features = ["vulkan"] }
 
-# Keep all Ruffle crates on the Android fork merge: BGM unload cleanup,
-# background surface handling, bounded texture caches, Scale9 and font/event fixes.
-ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e" }
-ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e", features = [
+# Pin all Ruffle crates to the tested 0.7.1-A render/cache optimization merge.
+ruffle_common = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681" }
+ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681", features = [
     "audio",
     "symphonia",
     "mp3",
@@ -49,10 +48,10 @@ ruffle_core = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c
     "default_compatibility_rules",
     "default_font",
 ] }
-ruffle_render = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e" }
-ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e" }
-ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e" }
-ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "c328dbefb563139ec10947ad009b2653b1286e5e", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
+ruffle_render = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681" }
+ruffle_render_wgpu = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681" }
+ruffle_video_software = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681" }
+ruffle_frontend_utils = { git = "https://github.com/aojiaoxiaolinlin/ruffle.git", rev = "533ef0884fd87fbd117467bb0ea82d50c4904681", default-features = false, features = ["fs", "navigator", "rustls-tls"] }
 
 log = "0.4.32"
 
@@ -68,4 +67,6 @@ webbrowser = "1.2.4"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros"]}
 
 [features]
+# Detailed per-second resource snapshots are opt-in for diagnostic APKs.
+diagnostics = ["ruffle_render_wgpu/detailed_diagnostics"]
 jpegxr = ["ruffle_core/jpegxr"]
