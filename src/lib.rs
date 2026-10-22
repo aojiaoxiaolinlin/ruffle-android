@@ -899,7 +899,9 @@ async fn run(app: AndroidApp) {
                         let pressure_flushes_this_frame =
                             pressure_flushes.saturating_sub(last_pressure_flushes);
                         last_pressure_flushes = pressure_flushes;
-                        if DETAILED_DIAGNOSTICS && (perf_renders == 1 || perf_renders % 24 == 0) {
+                        if DETAILED_DIAGNOSTICS
+                            && (perf_renders == 1 || perf_renders.is_multiple_of(24))
+                        {
                             let stats = renderer.bitmap_texture_stats();
                             last_bitmap_uploaded_bytes = stats.uploaded_bytes;
                             last_bitmap_target_bytes = stats.target_bytes;
