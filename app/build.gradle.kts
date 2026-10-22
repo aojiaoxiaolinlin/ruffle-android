@@ -40,8 +40,8 @@ android {
         }
         minSdk = 26
         targetSdk = 35
-        versionCode = 261014
-        versionName = "0.261014"
+        versionCode = providers.gradleProperty("releaseVersionCode").get().toInt()
+        versionName = providers.gradleProperty("releaseVersionName").get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -56,7 +56,8 @@ android {
     }
 
     signingConfigs {
-        val keyFile = file("androidkey.jks")
+        val keyPath = providers.gradleProperty("releaseKeystorePath").orElse("androidkey.jks").get()
+        val keyFile = file(keyPath)
         val storePasswordVal = System.getenv("SIGNING_STORE_PASSWORD")
         if (keyFile.exists() && storePasswordVal != null && storePasswordVal.isNotEmpty()) {
             create("release") {
