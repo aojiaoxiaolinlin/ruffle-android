@@ -625,6 +625,16 @@ private fun AuthorCard(
                     color = TextPrimary
                 )
             }
+            Text(
+                "本软件目前免费供玩家使用。若你是花钱买来的，娃儿，你上当了！请向购买平台举报卖家，别再付款。",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0x1FF8A72D), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
+                style = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodySmall,
+                color = Amber,
+                textAlign = TextAlign.Center
+            )
             AuthorLinkRow(
                 icon = R.drawable.ic_content_copy,
                 title = "QQ 群",
