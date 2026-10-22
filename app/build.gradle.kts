@@ -54,7 +54,8 @@ android {
     }
 
     signingConfigs {
-        val keyFile = file(providers.gradleProperty("releaseKeystorePath").orElse("androidkey.jks").get())
+        val keyPath = providers.gradleProperty("releaseKeystorePath").orElse("androidkey.jks").get()
+        val keyFile = file(keyPath)
         val storePasswordVal = System.getenv("SIGNING_STORE_PASSWORD")
         if (keyFile.exists() && storePasswordVal != null && storePasswordVal.isNotEmpty()) {
             create("release") {
