@@ -1,6 +1,6 @@
 # Android 公用基础能力回移（2026-10-22）
 
-目标分支 `codex/android-development`，起点 `4fc43ff`。从游戏分支提取公用能力，保持基础应用的文件/URL 打开入口、Ruffle 品牌与 `rs.ruffle` / `rs.ruffle.local` 包名。
+目标分支 `base`（原 `codex/android-development`），起点 `4fc43ff`。从游戏分支提取公用能力，保持基础应用的文件/URL 打开入口、Ruffle 品牌与 `rs.ruffle` / `rs.ruffle.local` 包名。
 
 ## 范围
 
@@ -24,3 +24,5 @@
 - 保持基础分支现有 CI 工作流与通用 Ruffle 产物命名；上述 JVM 测试在本次本地验证中执行。
 
 首次全功能检查缺少 libclang 搜索路径，配置 NDK 自带库后通过；本地命令需将 LIBCLANG_PATH 指向 NDK 的 toolchains/llvm/prebuilt/linux-x86_64/musl/lib（CI 如已有系统 libclang，无需此路径）。
+
+分支命名：公用 Android 开发长期保留 `base`，版本号使用发布 tag；构建工作流跟随新的分支名。

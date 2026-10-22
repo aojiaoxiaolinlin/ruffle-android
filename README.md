@@ -1,5 +1,7 @@
 This is a native Android application for [Ruffle](https://ruffle.rs).
 
+Shared Android development is maintained on `base`. Use release tags for versioned snapshots; the branch name stays unchanged.
+
 It is in a very early stage.
 
 Tap a Flash text field to open the system input method. Chinese composition,

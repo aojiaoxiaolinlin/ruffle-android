@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ main, codex/android-development ]
+    branches: [ main, base ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
