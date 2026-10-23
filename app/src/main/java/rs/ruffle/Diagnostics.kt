@@ -129,6 +129,10 @@ internal object Diagnostics {
         val trace = runCatching {
             exit.traceInputStream?.use { it.readBytes() }
         }.getOrNull()
+        // Only native tombstones on Android 12+ are protobuf. Other exit
+        // records can carry a text ANR trace, even when the final reason differs.
+        val nativeTombstone = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            exit.reason == ApplicationExitInfo.REASON_CRASH_NATIVE
         val text = buildString {
             appendLine("=== NATIVE/APP CRASH ===")
             appendLine("time: ${formatTime(exit.timestamp)}")
@@ -137,16 +141,21 @@ internal object Diagnostics {
             appendLine("process: ${exit.processName}")
             appendLine("description: ${exit.description ?: "-"}")
             appendLine("rss: ${exit.rss} KB, pss: ${exit.pss} KB")
-            appendLine(
-                "trace: " + if (trace == null) {
-                    "-"
-                } else {
-                    "$CRASH_NATIVE_TRACE (${trace.size} bytes, raw protobuf)"
-                }
-            )
+            if (nativeTombstone) {
+                appendLine(
+                    "trace: " + if (trace == null) {
+                        "-"
+                    } else {
+                        "$CRASH_NATIVE_TRACE (${trace.size} bytes, raw protobuf)"
+                    }
+                )
+            } else {
+                appendLine("--- trace ---")
+                append(trace?.toString(Charsets.UTF_8).orEmpty().take(64_000))
+            }
         }
         runCatching {
-            if (trace != null) {
+            if (nativeTombstone && trace != null) {
                 val traceFile = File(dir, CRASH_NATIVE_TRACE)
                 val traceTmp = File(dir, "$CRASH_NATIVE_TRACE.tmp")
                 traceTmp.writeBytes(trace)
