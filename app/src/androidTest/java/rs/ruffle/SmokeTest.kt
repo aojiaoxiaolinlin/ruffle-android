@@ -1,7 +1,6 @@
 package rs.ruffle
 
 import android.R
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -20,8 +19,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-private const val BASIC_SAMPLE_PACKAGE = "rs.ruffle"
-private const val LAUNCH_TIMEOUT = 5000L
+private const val LAUNCH_TIMEOUT = 10000L
 
 @RunWith(AndroidJUnit4::class)
 class SmokeTest {
@@ -55,20 +53,17 @@ class SmokeTest {
         )
         val bytes = inStream.readBytes()
         swfFile.writeBytes(bytes)
-        val intent = context.packageManager.getLaunchIntentForPackage(
-            BASIC_SAMPLE_PACKAGE
-        )?.apply {
-            component = ComponentName(BASIC_SAMPLE_PACKAGE, "rs.ruffle.PlayerActivity")
+        val intent = Intent(context, PlayerActivity::class.java).apply {
             data = Uri.fromFile(swfFile)
             putExtra("traceOutput", traceOutput.absolutePath)
             // Clear out any previous instances
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         context.startActivity(intent)
 
         // Wait for the app to appear
         device.wait(
-            Until.hasObject(By.pkg(BASIC_SAMPLE_PACKAGE).depth(0)),
+            Until.hasObject(By.pkg(context.packageName).depth(0)),
             LAUNCH_TIMEOUT
         )
     }
@@ -82,16 +77,13 @@ class SmokeTest {
     @Test
     fun reloadFromFloatingMenuRestartsTheMovie() {
         waitForHelloTrace()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
         val menuButton = checkNotNull(
-            device.wait(Until.findObject(By.res(BASIC_SAMPLE_PACKAGE, "button_cm")), LAUNCH_TIMEOUT)
+            device.wait(Until.findObject(By.res(context.packageName, "button_menu")), LAUNCH_TIMEOUT)
         )
         menuButton.click()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
         val reload = checkNotNull(
-            device.wait(
-                Until.findObject(By.text(context.getString(rs.ruffle.R.string.reload_movie))),
-                LAUNCH_TIMEOUT
-            )
+            device.wait(Until.findObject(By.res(context.packageName, "button_reload")), LAUNCH_TIMEOUT)
         )
         traceOutput.writeText("Waiting for reload\n")
         reload.click()

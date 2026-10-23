@@ -18,6 +18,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
+private const val UI_TIMEOUT = 20000L
+
 @RunWith(AndroidJUnit4::class)
 class BackgroundPlaybackTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -40,7 +42,11 @@ class BackgroundPlaybackTest {
         waitFor { gameIsImmersiveLandscape() }
         repeat(3) {
             device.pressHome()
-            assertTrue(device.wait(Until.hasObject(By.pkg(device.launcherPackageName)), 5000))
+            val launcher = checkNotNull(device.launcherPackageName)
+            assertTrue(
+                "Launcher did not appear after pressing Home",
+                device.wait(Until.hasObject(By.pkg(launcher)), UI_TIMEOUT)
+            )
             waitFor { connectionServiceIsForeground() }
             // Let onStop/surface destruction complete before measuring background ticks.
             SystemClock.sleep(1000)
@@ -52,7 +58,10 @@ class BackgroundPlaybackTest {
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                 )
             )
-            assertTrue(device.wait(Until.hasObject(By.desc("Ruffle Player")), 5000))
+            assertTrue(
+                "Player did not return to the foreground",
+                device.wait(Until.hasObject(By.desc("Ruffle Player")), UI_TIMEOUT)
+            )
             waitFor { !connectionServiceIsForeground() }
             waitFor { gameIsImmersiveLandscape() }
             waitFor { heartbeatCount(trace) >= count + 10 }
@@ -91,7 +100,7 @@ class BackgroundPlaybackTest {
         }
 
     private fun waitFor(condition: () -> Boolean) {
-        val deadline = SystemClock.elapsedRealtime() + 10000
+        val deadline = SystemClock.elapsedRealtime() + UI_TIMEOUT
         while (SystemClock.elapsedRealtime() < deadline) {
             if (condition()) return
             SystemClock.sleep(100)

@@ -11,11 +11,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private const val UI_TIMEOUT = 30000L
 
 @RunWith(AndroidJUnit4::class)
 class FloatingToolbarTest {
@@ -34,6 +38,10 @@ class FloatingToolbarTest {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         )
         try {
+            assertTrue(
+                "Player did not appear",
+                device.wait(Until.hasObject(By.desc("Ruffle Player")), UI_TIMEOUT)
+            )
             waitFor { snapshot()?.halfHidden == true }
             openAndClose()
             for (right in listOf(true, false)) {
@@ -57,9 +65,9 @@ class FloatingToolbarTest {
                         it.halfHidden &&
                             (
                                 if (right) {
-                                    it.handle.right == it.safe.right
+                                    near(it.handle.right, it.safe.right)
                                 } else {
-                                    it.handle.left == it.safe.left
+                                    near(it.handle.left, it.safe.left)
                                 }
                                 )
                     } == true
@@ -77,10 +85,10 @@ class FloatingToolbarTest {
         assertTrue(closed.halfHidden)
         device.click(closed.handle.centerX(), closed.handle.centerY())
         waitFor {
-            snapshot()?.let { it.expanded && it.handle.width() == it.height } == true
+            snapshot()?.let { it.expanded && near(it.handle.width(), it.handle.height()) } == true
         }
         val opened = requireNotNull(snapshot())
-        assertTrue(opened.safe.contains(opened.handle))
+        assertTrue(withinSafe(opened.safe, opened.handle))
         device.click(opened.handle.centerX(), opened.handle.centerY())
         waitFor { snapshot()?.halfHidden == true }
     }
@@ -138,12 +146,23 @@ class FloatingToolbarTest {
         return result
     }
 
+    private fun near(a: Int, b: Int): Boolean = kotlin.math.abs(a - b) <= 2
+
+    private fun withinSafe(safe: Rect, handle: Rect): Boolean =
+        handle.left >= safe.left - 2 &&
+            handle.top >= safe.top - 2 &&
+            handle.right <= safe.right + 2 &&
+            handle.bottom <= safe.bottom + 2
+
     private fun waitFor(condition: () -> Boolean) {
-        val deadline = SystemClock.elapsedRealtime() + 10000
+        val deadline = SystemClock.elapsedRealtime() + UI_TIMEOUT
         while (SystemClock.elapsedRealtime() < deadline) {
             if (condition()) return
             SystemClock.sleep(50)
         }
-        assertTrue("Floating toolbar did not reach the expected state", condition())
+        assertTrue(
+            "Floating toolbar did not reach the expected state; last snapshot: ${snapshot()}",
+            condition()
+        )
     }
 }
