@@ -21,6 +21,8 @@ codegen-units = 1
 
 [dependencies]
 
+async-channel = "2"
+
 android-activity = { version = "0.6.1", features = ["game-activity"] }
 android_logger = "0.15.1"
 

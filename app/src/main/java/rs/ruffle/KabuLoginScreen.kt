@@ -46,6 +46,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,10 +94,16 @@ private const val AUTHOR_BILIBILI_URL = "https://space.bilibili.com/33570253"
 private const val AUTHOR_BILIBILI_DISPLAY = "space.bilibili.com/33570253"
 
 @Composable
-fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
+fun KabuLoginScreen(
+    sessionVersion: Int = 0,
+    sessionExpired: Boolean = false,
+    openGame: (Uri, String, String) -> Unit
+) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val store = remember { RememberedLoginStore(context.applicationContext) }
+    val sessions = remember { KabuSessionStore(context.applicationContext) }
+    var session by remember { mutableStateOf<String?>(null) }
     var username by rememberSaveable { mutableStateOf("") }
     // Passwords stay out of instance state; persistence is opt-in and encrypted.
     var password by remember { mutableStateOf("") }
@@ -107,14 +114,31 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(store) {
+    LaunchedEffect(store, sessionVersion) {
+        loadingSaved = true
+        session = withContext(Dispatchers.IO) { sessions.load() }
         val saved = withContext(Dispatchers.IO) { store.load() }
         if (saved != null) {
             username = saved.username
             password = saved.password
             rememberLogin = true
         }
+        error = if (sessionExpired) "登录状态已失效，请重新登录" else null
         loadingSaved = false
+    }
+
+    fun reauthorize() {
+        if (busy || loadingSaved) return
+        busy = true
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { sessions.clear() }
+                session = null
+                error = null
+            } finally {
+                busy = false
+            }
+        }
     }
 
     fun setRememberLogin(checked: Boolean) {
@@ -141,12 +165,16 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                 try {
                     val auth =
                         withContext(Dispatchers.IO) { KabuLoginClient().login(account, secret) }
-                    val saved = withContext(Dispatchers.IO) {
-                        runCatching {
+                    val (sessionSaved, credentialsSaved) = withContext(Dispatchers.IO) {
+                        runCatching { sessions.save(auth) }.isSuccess to runCatching {
                             if (rememberLogin) store.save(account, secret) else store.clear()
                         }.isSuccess
                     }
-                    if (!saved) {
+                    session = auth
+                    if (!sessionSaved) {
+                        Toast.makeText(context, "登录成功，但保存登录状态失败", Toast.LENGTH_LONG).show()
+                    }
+                    if (!credentialsSaved) {
                         Toast.makeText(context, "登录成功，但保存账号密码失败", Toast.LENGTH_LONG).show()
                     }
                     if (!rememberLogin) password = ""
@@ -244,24 +272,41 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                                 textAlign = TextAlign.Center
                             )
                         }
-                        LoginFormCard(
-                            modifier = Modifier.weight(1.1f),
-                            username = username,
-                            onUsernameChange = { username = it },
-                            password = password,
-                            onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible,
-                            onTogglePasswordVisible = {
-                                passwordVisible = !passwordVisible
-                            },
-                            rememberLogin = rememberLogin,
-                            onRememberChange = { setRememberLogin(it) },
-                            busy = busy,
-                            loadingSaved = loadingSaved,
-                            error = error,
-                            onSubmit = { submit() },
-                            compact = true
-                        )
+                        if (session != null) {
+                            SavedSessionCard(
+                                modifier = Modifier.weight(1.1f),
+                                enabled = !busy && !loadingSaved,
+                                onContinue = {
+                                    session?.let { auth ->
+                                        openGame(
+                                            Uri.parse(KabuLoginClient.GAME_SWF),
+                                            KabuLoginClient.BASE_URL,
+                                            auth
+                                        )
+                                    }
+                                },
+                                onReauthorize = { reauthorize() }
+                            )
+                        } else {
+                            LoginFormCard(
+                                modifier = Modifier.weight(1.1f),
+                                username = username,
+                                onUsernameChange = { username = it },
+                                password = password,
+                                onPasswordChange = { password = it },
+                                passwordVisible = passwordVisible,
+                                onTogglePasswordVisible = {
+                                    passwordVisible = !passwordVisible
+                                },
+                                rememberLogin = rememberLogin,
+                                onRememberChange = { setRememberLogin(it) },
+                                busy = busy,
+                                loadingSaved = loadingSaved,
+                                error = error,
+                                onSubmit = { submit() },
+                                compact = true
+                            )
+                        }
                     }
                 } else {
                     Column(
@@ -272,24 +317,41 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(18.dp)
                     ) {
                         BrandingBlock(compact = false)
-                        LoginFormCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            username = username,
-                            onUsernameChange = { username = it },
-                            password = password,
-                            onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible,
-                            onTogglePasswordVisible = {
-                                passwordVisible = !passwordVisible
-                            },
-                            rememberLogin = rememberLogin,
-                            onRememberChange = { setRememberLogin(it) },
-                            busy = busy,
-                            loadingSaved = loadingSaved,
-                            error = error,
-                            onSubmit = { submit() },
-                            compact = false
-                        )
+                        if (session != null) {
+                            SavedSessionCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy && !loadingSaved,
+                                onContinue = {
+                                    session?.let { auth ->
+                                        openGame(
+                                            Uri.parse(KabuLoginClient.GAME_SWF),
+                                            KabuLoginClient.BASE_URL,
+                                            auth
+                                        )
+                                    }
+                                },
+                                onReauthorize = { reauthorize() }
+                            )
+                        } else {
+                            LoginFormCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                username = username,
+                                onUsernameChange = { username = it },
+                                password = password,
+                                onPasswordChange = { password = it },
+                                passwordVisible = passwordVisible,
+                                onTogglePasswordVisible = {
+                                    passwordVisible = !passwordVisible
+                                },
+                                rememberLogin = rememberLogin,
+                                onRememberChange = { setRememberLogin(it) },
+                                busy = busy,
+                                loadingSaved = loadingSaved,
+                                error = error,
+                                onSubmit = { submit() },
+                                compact = false
+                            )
+                        }
                         AuthorCard(
                             onCopyQq = copyQq,
                             onOpenBilibili = openBilibili,
@@ -348,7 +410,7 @@ private fun BrandingBlock(compact: Boolean) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "游戏不卡 · 登录 4399 账号，开启西游冒险",
+                text = "游戏不卡 · 开启西游冒险",
                 style = if (compact) {
                     MaterialTheme.typography.labelMedium
                 } else {
@@ -707,5 +769,42 @@ private fun AuthorLinkRow(
             fontWeight = FontWeight.Bold,
             color = Amber
         )
+    }
+}
+
+@Composable
+private fun SavedSessionCard(
+    modifier: Modifier,
+    enabled: Boolean,
+    onContinue: () -> Unit,
+    onReauthorize: () -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        color = CardBackground,
+        border = BorderStroke(1.dp, Hairline)
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("已保存登录状态", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Button(
+                onClick = onContinue,
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Amber,
+                    contentColor = DarkText
+                )
+            ) {
+                Text("继续游戏")
+            }
+            TextButton(onClick = onReauthorize, enabled = enabled) {
+                Text("重新登录 / 切换账号", color = Amber)
+            }
+        }
     }
 }

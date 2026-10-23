@@ -14,6 +14,7 @@
 | 较早的真机测试与性能采样 | [device-test-results-2026-10-21.md](device-test-results-2026-10-21.md) |
 | 副本退出时 Loader 卸载重入崩溃及已验证修复 | [dungeon-exit-crash-2026-10-23.md](dungeon-exit-crash-2026-10-23.md) |
 | roco CI 包的 GLES 崩溃、待验证判断与暂缓修改决定 | [roco-gles-crash-2026-10-23.md](roco-gles-crash-2026-10-23.md) |
+| kabu auth_string 持久化、复用与重登触发条件 | [kabu-session-persistence.md](kabu-session-persistence.md) |
 | 固定发布签名、版本号及覆盖更新 | [android-release-updates.md](android-release-updates.md) |
 | 公共 Android 能力回移到 base 的范围 | [shared-android-backport-2026-10-22.md](shared-android-backport-2026-10-22.md) |
 
@@ -27,6 +28,8 @@
 - 正式 roco 与卡布包使用同一签名证书，包名不同，数据与更新独立。
 
 本索引和 roco GLES 崩溃记录随本次文档提交纳入 roco、kabu 的版本控制。后续新增记录仍应核对 Git 状态与推送结果，不能只因文件位于 docs 就认为已备份。
+
+kabu 后续更新：已加入 auth_string 加密持久化与“继续游戏”，明确重登时清除票据，详情见上述会话记录。JVM 16 项、独立包名 Android 存储测试 3 项及 ARM64 普通/jpegxr Clippy 通过；没有使用真实账号测试服务器过期流程。
 
 ## roco 与 kabu 的资料盘点（2026-10-23）
 

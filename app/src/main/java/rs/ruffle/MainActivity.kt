@@ -8,22 +8,46 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import rs.ruffle.ui.theme.RuffleTheme
 
 class MainActivity : ComponentActivity() {
+    private var sessionVersion by mutableIntStateOf(0)
+    private var sessionExpired by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         Diagnostics.installCrashHandler(this)
         super.onCreate(savedInstanceState)
+        sessionExpired = intent.getBooleanExtra(KabuSession.EXPIRED, false)
+        intent.removeExtra(KabuSession.EXPIRED)
+        intent.removeExtra(KabuSession.REAUTHORIZE)
 
         setContent {
             RuffleTheme {
                 Box(Modifier.fillMaxSize()) {
-                    KabuLoginScreen { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
+                    KabuLoginScreen(
+                        sessionVersion = sessionVersion,
+                        sessionExpired = sessionExpired
+                    ) { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
                     CrashPrompt()
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(KabuSession.REAUTHORIZE, false)) {
+            sessionExpired = intent.getBooleanExtra(KabuSession.EXPIRED, false)
+            sessionVersion += 1
+            intent.removeExtra(KabuSession.REAUTHORIZE)
+            intent.removeExtra(KabuSession.EXPIRED)
         }
     }
 

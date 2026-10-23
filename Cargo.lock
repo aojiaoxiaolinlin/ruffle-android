@@ -2925,6 +2925,7 @@ version = "0.1.0"
 dependencies = [
  "android-activity",
  "android_logger",
+ "async-channel",
  "async-task",
  "backtrace",
  "fontdb",

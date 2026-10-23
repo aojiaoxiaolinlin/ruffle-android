@@ -103,7 +103,33 @@ class PlayerActivity : GameActivity() {
     @Suppress("unused")
     // Used by Rust
     private fun navigateToUrl(url: String?) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        if (url == null) return
+        runOnUiThread {
+            if (isKabuGame() && KabuSession.isLoginUrl(url)) {
+                reauthorize(expired = true)
+            } else if (!url.startsWith("javascript:")) {
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            }
+        }
+    }
+
+    private fun isKabuGame(): Boolean = intent.data?.let {
+        it.host == "enter.wanwan4399.com" && it.path == "/bin-debug/GreenGame.swf"
+    } == true
+
+    private var reauthorizing = false
+
+    private fun reauthorize(expired: Boolean = false) {
+        if (reauthorizing || isFinishing || isDestroyed) return
+        reauthorizing = true
+        KabuSessionStore(this).clear()
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(KabuSession.REAUTHORIZE, true)
+                .putExtra(KabuSession.EXPIRED, expired)
+        )
+        finish()
     }
 
     private var loc = IntArray(2)
@@ -214,10 +240,15 @@ class PlayerActivity : GameActivity() {
                 }
             }
             val exitItemId = items.size
+            val loginItemId = items.size + 1
+            if (isKabuGame()) {
+                menu.add(group + 1, loginItemId, Menu.NONE, "重新登录 / 切换账号")
+            }
             menu.add(group + 1, exitItemId, Menu.NONE, R.string.exit_player)
             popup.setOnMenuItemClickListener { item: MenuItem ->
                 when (item.itemId) {
                     exitItemId -> finish()
+                    loginItemId -> reauthorize()
                     else -> runContextMenuCallback(item.itemId)
                 }
                 true

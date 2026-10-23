@@ -1,5 +1,6 @@
 mod audio;
 mod custom_event;
+mod external;
 mod fonts;
 mod java;
 mod keycodes;
@@ -56,7 +57,7 @@ use ruffle_frontend_utils::{
 };
 use ruffle_render::quality::StageQuality;
 
-use crate::navigator::AndroidNavigatorInterface;
+use crate::navigator::{AndroidNavigatorInterface, KabuNavigatorBackend};
 use crate::trace::FileLogBackend;
 use java::JavaInterface;
 use ruffle_render_wgpu::{backend::WgpuRenderBackend, target::SwapChainTarget};
@@ -454,6 +455,8 @@ async fn run(app: AndroidApp) {
                                     .map(|auth| vec![("auth_string".to_owned(), auth)])
                                     .unwrap_or_default();
                                 let movie_url = Url::parse(&url).unwrap();
+                                let is_kabu = movie_url.host_str() == Some("enter.wanwan4399.com")
+                                    && movie_url.path() == "/bin-debug/GreenGame.swf";
                                 let base_url = base_url
                                     .and_then(|base| Url::parse(&base).ok())
                                     .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())
@@ -475,26 +478,30 @@ async fn run(app: AndroidApp) {
                                     Default::default(),
                                     ruffle_core::backend::navigator::SocketMode::Allow,
                                     Rc::new(PlayingContent::DirectFile(ContentDescriptor::new_remote(movie_url))),
-                                    AndroidNavigatorInterface,
+                                    AndroidNavigatorInterface { app: app.clone() },
                                 );
+                                let navigator = KabuNavigatorBackend {
+                                    inner: navigator,
+                                    interface: AndroidNavigatorInterface { app: app.clone() },
+                                };
 
+                                let mut builder = PlayerBuilder::new()
+                                    .with_renderer(renderer)
+                                    .with_quality(stage_quality_from_int(stage_quality))
+                                    .with_frame_rate(frame_rate_override)
+                                    .with_audio(AAudioAudioBackend::new().unwrap())
+                                    .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
+                                    .with_navigator(navigator)
+                                    .with_ui(ui::AndroidUiBackend::new(app.clone()))
+                                    .with_log(FileLogBackend::new(trace_output.as_deref()))
+                                    .with_video(ruffle_video_software::backend::SoftwareVideoBackend::new());
+                                if is_kabu {
+                                    builder = builder.with_external_interface(Box::new(external::KabuExternalInterface));
+                                }
                                 playerbox = Some(ActivePlayer {
                                     id: player_id,
-                                    player: PlayerBuilder::new()
-                                            .with_renderer(renderer)
-                                            .with_quality(stage_quality_from_int(stage_quality))
-                                            .with_frame_rate(frame_rate_override)
-                                            .with_audio(AAudioAudioBackend::new().unwrap())
-                                            .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
-                                            .with_navigator(navigator)
-                                            .with_ui(ui::AndroidUiBackend::new(app.clone()))
-                                            .with_log(FileLogBackend::new(trace_output.as_deref()))
-                                            .with_video(
-                                                ruffle_video_software::backend::SoftwareVideoBackend::new(),
-                                            )
-                                        .build(),
-                                    }
-                                );
+                                    player: builder.build(),
+                                });
 
                                 let player = &playerbox.as_ref().unwrap().player;
                                 let mut player_lock = player.lock().unwrap();

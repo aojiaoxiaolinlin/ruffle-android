@@ -2,14 +2,22 @@
 
 The `kabu` branch is a Kabu Xiyou launcher built on [Ruffle](https://ruffle.rs).
 Install **卡布**, enter your 4399 username and password, and tap **登录并进入游戏**.
-It obtains a fresh `auth_string` using the same protocol as `kabu-login`, then opens
-`GreenGame.swf` with the token as a FlashVar and the game's resource base URL configured automatically.
-Passwords are not saved to files, preferences or saved instance state, and are not logged.
+After login it saves the opaque `auth_string` encrypted with Android Keystore in the
+app's no-backup directory. Later launches show **继续游戏**, which reuses the ticket
+without submitting the account/password again. The game decides when it expires;
+the app does not invent a local expiry time. Official return-to-login commands clear
+the ticket and return to the login form. **重新登录 / 切换账号** is available on the
+home screen and in the game menu. Ordinary game exits and transport failures do not
+by themselves clear the saved ticket.
+`GreenGame.swf` receives the token as a FlashVar, with its resource base URL configured automatically.
+Saving account/password remains a separate opt-in encrypted feature; passwords are
+not stored in saved instance state or logged.
 Accounts requiring a CAPTCHA cannot complete verification in this shortcut login screen.
 
 The menu button opens a small floating toolbar. Drag it to move the toolbar;
 it docks to the nearest side and stays inside the display's safe area. The menu includes **重新加载**,
-which restarts the player with the same game and launch parameters. Exit returns to the login screen.
+which restarts the player with the same game and launch parameters. Exit returns to the home screen
+without clearing the saved session.
 
 Tap a Flash text field to open the phone's input method.
 Chinese composition, committed Unicode text, backspace and forward delete are supported.
