@@ -1,167 +1,57 @@
-# 卡布 Android
+# 游戏不卡 Android
 
-The `kabu` branch is a Kabu Xiyou launcher built on [Ruffle](https://ruffle.rs).
-Install **卡布**, enter your 4399 username and password, and tap **登录并进入游戏**.
-After login it saves the opaque `auth_string` encrypted with Android Keystore in the
-app's no-backup directory. Later launches show **继续游戏**, which reuses the ticket
-without submitting the account/password again. The game decides when it expires;
-the app does not invent a local expiry time. Official return-to-login commands clear
-the ticket and return to the login form. **重新登录 / 切换账号** is available on the
-home screen and in the game menu. Ordinary game exits and transport failures do not
-by themselves clear the saved ticket.
-`GreenGame.swf` receives the token as a FlashVar, with its resource base URL configured automatically.
-Saving account/password remains a separate opt-in encrypted feature; passwords are
-not stored in saved instance state or logged.
-Accounts requiring a CAPTCHA cannot complete verification in this shortcut login screen.
+`kabu` 分支是卡布西游的 Android 登录客户端，基于 [Ruffle](https://ruffle.rs)。安装后输入 4399 账号和密码，点击 **登录并进入游戏**。
 
-The menu button opens a small floating toolbar. Drag it to move the toolbar;
-it docks to the nearest side and stays inside the display's safe area. The menu includes **重新加载**,
-which restarts the player with the same game and launch parameters. Exit returns to the home screen
-without clearing the saved session.
+正式包名为 `rs.ruffle.kabu`，应用名为 **游戏不卡**，可与通用 Ruffle 客户端同时安装。
 
-Tap a Flash text field to open the phone's input method.
-Chinese composition, committed Unicode text, backspace and forward delete are supported.
-The keyboard overlays the game without resizing its render surface. For a movable small
-keyboard, enable **悬浮键盘** / **游戏键盘** in your input method's own menu; its appearance
-and availability depend on the installed input method. Back or the IME's Done button hides it.
-Baidu Input Honor's dedicated game keyboard is a separate mode controlled by the input method's
-application recognition. On the tested device, enabling its game-keyboard switch and declaring
-the app as a game did not activate that mode for Ruffle; ordinary floating mode remains available.
+## 下载与安装
 
-The application ID is `rs.ruffle.kabu`, so this build can coexist with the general Ruffle app.
-The app label is **卡布**, and CI produces `卡布-<ABI>-release.apk` files in the **kabu-release-apks** artifact.
-Pushes to `kabu` automatically trigger the Build workflow. The `main` branch remains aligned with upstream;
-general Android improvements are maintained on `base`.
-Release versions use tags; the shared development branch name stays unchanged.
+请从 [本仓库 Releases](https://github.com/aojiaoxiaolinlin/ruffle-android/releases) 下载 `kabu` 分支构建，或在 GitHub Actions 的 **Build** 工作流中下载 **kabu-release-apks** artifact。
 
-The general Ruffle documentation below applies to the non-Kabu build unless otherwise stated.
+- artifact 中的 APK 为 `游戏不卡-<ABI>-release.apk`
+- 多数现代设备使用 `arm64-v8a`
+- 推送 `kabu` 分支会触发 **Build** 工作流；也可以在 **Actions → Build → Run workflow** 中手动选择 `kabu`
+- 不要使用上游 Ruffle 的 F-Droid 或 Release 安装包替代本分支构建
 
-It is in a very early stage.
+正式发布使用仓库 secrets 中的持久签名。没有配置 `KEYSTORE` 的临时构建会使用一次性签名，安装新构建时可能需要先卸载旧版本，从而清除应用数据。
 
-# Prebuilt APKs
+## 主要功能
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-     alt="Get it on F-Droid"
-     height="75">](https://f-droid.org/packages/rs.ruffle/)
+- 使用 4399 用户名和密码登录，登录成功后把不透明的 `auth_string` 用 Android Keystore 加密保存到应用的 no-backup 目录
+- 后续启动显示 **继续游戏**，复用票据，不需要再次提交账号密码；票据是否过期由游戏服务器判断，应用不设置本地过期时间
+- 官方返回登录命令会清除票据并回到登录页；普通退出游戏和网络故障不会自动清除票据
+- 主页和游戏菜单提供 **重新登录 / 切换账号**
+- `GreenGame.swf` 通过 FlashVar 接收票据，并自动配置资源基址
+- 保存账号密码是可选的独立加密功能；密码不会写入保存的实例状态或日志
+- 菜单按钮打开可拖动的浮动工具栏，工具栏会吸附到最近的屏幕边缘并保持在安全区域内
+- 浮动菜单支持 **重新加载**，使用相同游戏和启动参数重启播放器；退出游戏返回主页但不清除已保存会话
+- 点击 Flash 文本输入框会打开系统输入法，支持中文组合、已提交的 Unicode 文本、退格和前向删除；键盘覆盖游戏，不改变渲染区域大小
 
-The latest release [(here)](https://github.com/ruffle-rs/ruffle-android/releases) should have a few `.apk` files uploaded as assets.
+## 已知限制
 
-You can try this app by downloading and installing one of those.
+- 需要 CAPTCHA 验证的账号无法在当前快捷登录页完成验证
+- 悬浮键盘的显示和可用性取决于已安装的输入法；百度输入法的游戏键盘模式由输入法自身控制，在测试设备上未能为 Ruffle 激活该模式
+- 游戏玩法兼容性仍取决于 Ruffle 和游戏资源本身
 
-- **For the vast majority of modern phones, tablets, single board computers, and small game consoles, you'll need the `arm64-v8a` version.**
+## 构建与测试
 
-- The `armeabi-v7a` version is for older, 32-bit ARM stuff.
+构建环境和依赖请见 [CONTRIBUTING.md](CONTRIBUTING.md#building-from-source)。
 
-- The `x86_64` version is for some rare Intel/Microsoft tablets and/or for Chromebooks, and/or for running on a PC on Android-x86 or in Waydroid or similar.
+```sh
+./gradlew :app:testDebugUnitTest assembleRelease
+```
 
-- The `x86` version is there mostly just for completeness.
+CI 成功后可下载 **kabu-release-apks** artifact，其中的 APK 已重命名为 `游戏不卡-<ABI>-release.apk`。
 
-- The `universal` version should work on all 4 of the above architectures, but it's _huge_.
+## 分支与发布
 
-# Building from source
+- `main`：保持与上游 Ruffle Android 对齐
+- `base`：维护共享 Android 改进
+- `kabu`：卡布西游登录客户端
+- `roco`：洛克王国登录客户端
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md#building-from-source) for details about how to build this repository yourself.
+发布版本使用 tag，`kabu` 分支名保持不变。
 
-## Loading resources from an HTTP server
+## 与上游 Ruffle 的关系
 
-On the opening screen, set **Custom base URL (optional)** before selecting a local SWF or opening a SWF URL.
-For example, with `http://192.168.1.100:8000/game/` as the base URL, a SWF request for `images/title.png`
-loads `http://192.168.1.100:8000/game/images/title.png`. End directory URLs with `/`.
-Leave the field empty to use the SWF location. This setting resolves relative URLs; absolute URLs inside the SWF are unchanged.
-
-Use a server address reachable from the Android device. `localhost` and `127.0.0.1` refer to the Android device itself;
-for a server running on your computer, use the computer's LAN IP address (or `10.0.2.2` in the standard Android emulator).
-HTTP requests are supported without automatically upgrading them to HTTPS.
-
-## Development core and Chinese fonts
-
-This development branch pins all Ruffle crates to commit `96672e20dc02566a6befd17a3a9cd18d9c773de6`
-of `aojiaoxiaolinlin/ruffle`. It includes the shared Scale9 rendering, AVM2 broadcast-event propagation,
-and default-font glyph fallback fixes used by our desktop build. Update all Ruffle revisions together
-and regenerate `Cargo.lock` when changing the core.
-
-The Android player loads device fonts from Android's system, product, vendor, and updated-font directories.
-Missing Windows font families use Android alternatives, and Chinese glyphs can fall back to Noto CJK
-or Droid Sans Fallback, with simplified Chinese preferred. Font collections retain their face indices
-and share file data between faces. No extra font download or storage permission is needed.
-Available glyphs still depend on the fonts installed by the device manufacturer.
-
-## Building APKs with GitHub Actions
-
-The repository includes a **Build** workflow in `.github/workflows/build.yml`.
-After pushing your changes to your fork, enable Actions if necessary, select **Actions → Build → Run workflow**,
-and choose the branch containing your changes. Pushes to `main` and pull requests targeting `main` also trigger the workflow.
-
-Once the `build-apks` job succeeds, download the **ruffle-release-apks** artifact from the workflow run.
-It contains APKs for all four supported ABIs and a universal APK. Most current Android devices use `arm64-v8a`.
-No signing secrets are required for a personal build: the workflow generates a temporary signing key when `KEYSTORE` is absent.
-That key changes between runs, so installing a later build may require uninstalling the previous one, which removes app data.
-For consistent signing, configure `KEYSTORE` (base64-encoded keystore), `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`,
-and `SIGNING_STORE_PASSWORD` as repository secrets.
-
----
-
-# TODO
-
-In no particular order:
-
-- [X] Ability to show the system virtual keyboard (softinput), for text input
-- [ ] Controller/Gamepad input?
-  - Mapped to key presses and/or virtual mouse pointer
-- [ ] Own custom keyboard overlay, maybe even per-content configs
-- [ ] Error/panic handling
-- [ ] Loading "animation" (spinner)
-- [ ] Alternative audio backend (OpenSL ES) for Android < 8
-- [ ] Proper storage backend?
-- [ ] Resolve design glitches/styling/theming (immersive mode, window insets for holes/notches/corners)
-- [ ] Publish to various app stores, maybe automatically?
-- [ ] Bundle demo animations/games
-- [ ] Add ability to load content from well known online collections? (well maybe not z0r... unless?)
-- [ ] History, favorites, other flair...?
-
-### DONE:
-
-- [X] Clean up ~everything
-- [X] Cross-platform build instructions?
-  - I think gradle should take care of it now
-- [X] UI backend (context menu)
-  - Context menu works
-- [X] Logging?
-- [X] Navigator backend (fetch, open browser)
-  - Opening links works at least
-- [X] Touch/mouse input
-- [X] Keyboard input: physical keyboard, `scrcpy`, and the system input method
-  - This was needed: https://github.com/rust-windowing/winit/pull/2226
-- [X] Split into a separate repo
-- [X] Add ability to Open SWF by entered/pasted URL (or even directly from clipboard)
-  - No direct clipboard open, but easy to paste into the text field...
-- [X] Unglitchify rendering: scale, center and letterbox the content properly
-- [ ] Ask CPAL/Oboe to open a "media" type output stream instead of a "call" one
-  - so the right volume slider controls it, and it uses the loud(er)speaker
-  - -> solved by switching to a direct AAudio (ndk-audio) backend
-- [X] Add building this to CI, at least to the release workflow
-  - This repo has its own CI setup, which builds APKs
-- [X] Simplify build process (hook cargo-apk into gradle, drop cargo-apk?)
-  - ~cargo-apk is fine, but is only used to detect the SDK/NDK environment and run Cargo in it, and not to build an APK.~
-  - actually solved by switching to `cargo-ndk` and the corresponding Gradle plugin
-- [X] Somehow filter files to be picked to .swf
-  - How well this works depends on the file picker, but it "should work most of the time"
-- [X] Unglitchify audio volume (buttons unresponsive?)
-  - (pending: https://github.com/rust-windowing/winit/pull/1919)
-  - actually solved by switching to GameActivity instead
-- [ ] Register Ruffle to open .swf files
-  - How well this works depends on the application opening the file, but it "should work most of the time"
-- [X] Figure out why videos are not playing (could be a seeking issue)
-  - The video decoder features weren't enabled on `ruffle_core`...
-- [X] Sign the APK
-  - Using a very simple key for now, with just my name in it
-- [X] Support for 32-bit ARM phones
-  - Untested, but should work in theory
-- [X] Support for x86(_64) tablets?
-  - Sorted out
-- [X] Consider not building the intermediate .apk just for the shared libraries
-  - Figured out, no intermediate .apk any more, only native libs built
-- [ ] Unbreak the regular build on CI
-  - No longer relevant after the repo split
-- [ ] Clean up commit history of the branch
-  - No longer relevant after the repo split
+本分支基于 [Ruffle](https://ruffle.rs) 和 [ruffle-rs/ruffle-android](https://github.com/ruffle-rs/ruffle-android)，但包含本仓库自己的登录、会话和 Android 改动。上游项目、F-Droid 版本和上游 Release 不是本分支的下载渠道。
