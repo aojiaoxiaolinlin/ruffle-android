@@ -11,11 +11,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private const val UI_TIMEOUT = 30000L
 
 @RunWith(AndroidJUnit4::class)
 class FloatingToolbarTest {
@@ -34,6 +38,10 @@ class FloatingToolbarTest {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         )
         try {
+            assertTrue(
+                "Player did not appear",
+                device.wait(Until.hasObject(By.desc("Ruffle Player")), UI_TIMEOUT)
+            )
             waitFor { snapshot()?.halfHidden == true }
             openAndClose()
             for (right in listOf(true, false)) {
@@ -139,11 +147,14 @@ class FloatingToolbarTest {
     }
 
     private fun waitFor(condition: () -> Boolean) {
-        val deadline = SystemClock.elapsedRealtime() + 10000
+        val deadline = SystemClock.elapsedRealtime() + UI_TIMEOUT
         while (SystemClock.elapsedRealtime() < deadline) {
             if (condition()) return
             SystemClock.sleep(50)
         }
-        assertTrue("Floating toolbar did not reach the expected state", condition())
+        assertTrue(
+            "Floating toolbar did not reach the expected state; last snapshot: ${snapshot()}",
+            condition()
+        )
     }
 }

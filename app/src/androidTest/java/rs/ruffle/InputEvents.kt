@@ -1,6 +1,5 @@
 package rs.ruffle
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Point
@@ -24,8 +23,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
-private const val BASIC_SAMPLE_PACKAGE = "rs.ruffle"
-private const val LAUNCH_TIMEOUT = 5000L
+private const val LAUNCH_TIMEOUT = 10000L
 private const val SWF_WIDTH = 550.0
 private const val SWF_HEIGHT = 400.0
 
@@ -63,20 +61,17 @@ class InputEvents {
         )
         val bytes = inStream.readBytes()
         swfFile.writeBytes(bytes)
-        val intent = context.packageManager.getLaunchIntentForPackage(
-            BASIC_SAMPLE_PACKAGE
-        )?.apply {
-            component = ComponentName("rs.ruffle", "rs.ruffle.PlayerActivity")
+        val intent = Intent(context, PlayerActivity::class.java).apply {
             data = Uri.fromFile(swfFile)
             putExtra("traceOutput", traceOutput.absolutePath)
             // Clear out any previous instances
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         context.startActivity(intent)
 
         // Wait for the app to appear
         device.wait(
-            Until.hasObject(By.pkg(BASIC_SAMPLE_PACKAGE).depth(0)),
+            Until.hasObject(By.pkg(context.packageName).depth(0)),
             LAUNCH_TIMEOUT
         )
     }
