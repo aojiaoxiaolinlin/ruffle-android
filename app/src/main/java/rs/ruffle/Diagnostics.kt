@@ -34,6 +34,7 @@ internal object Diagnostics {
     private const val CRASH_RUST = "crash-rust.log"
     private const val CRASH_JAVA = "crash-java.log"
     private const val CRASH_NATIVE = "native-crash.log"
+    private const val CRASH_NATIVE_TRACE = "native-crash.trace.pb"
     private const val CRASH_ACK = "crash-ack"
     private const val MAX_LOG_BYTES = 2 * 1024 * 1024
 
@@ -122,11 +123,12 @@ internal object Diagnostics {
                         )
             }
             .maxByOrNull { it.timestamp } ?: return
-        val file = File(storageDir(context), CRASH_NATIVE)
+        val dir = storageDir(context)
+        val file = File(dir, CRASH_NATIVE)
         if (file.exists() && file.lastModified() >= exit.timestamp) return
         val trace = runCatching {
-            exit.traceInputStream?.use { it.readBytes().toString(Charsets.UTF_8) }
-        }.getOrNull().orEmpty()
+            exit.traceInputStream?.use { it.readBytes() }
+        }.getOrNull()
         val text = buildString {
             appendLine("=== NATIVE/APP CRASH ===")
             appendLine("time: ${formatTime(exit.timestamp)}")
@@ -135,11 +137,34 @@ internal object Diagnostics {
             appendLine("process: ${exit.processName}")
             appendLine("description: ${exit.description ?: "-"}")
             appendLine("rss: ${exit.rss} KB, pss: ${exit.pss} KB")
-            appendLine("--- trace ---")
-            append(trace.take(64_000))
+            appendLine(
+                "trace: " + if (trace == null) {
+                    "-"
+                } else {
+                    "$CRASH_NATIVE_TRACE (${trace.size} bytes, raw protobuf)"
+                }
+            )
         }
         runCatching {
-            file.writeText(text)
+            if (trace != null) {
+                val traceFile = File(dir, CRASH_NATIVE_TRACE)
+                val traceTmp = File(dir, "$CRASH_NATIVE_TRACE.tmp")
+                traceTmp.writeBytes(trace)
+                if (!traceTmp.renameTo(traceFile)) {
+                    traceFile.writeBytes(trace)
+                    traceTmp.delete()
+                }
+                traceFile.setLastModified(exit.timestamp)
+            } else {
+                File(dir, CRASH_NATIVE_TRACE).delete()
+            }
+
+            val header = File(dir, "$CRASH_NATIVE.tmp")
+            header.writeText(text)
+            if (!header.renameTo(file)) {
+                file.writeText(text)
+                header.delete()
+            }
             file.setLastModified(exit.timestamp)
         }
     }
@@ -248,14 +273,18 @@ internal object Diagnostics {
                 output.closeEntry()
             }
 
-            fun addFile(name: String, file: File) {
+            fun addFile(name: String, file: File, maxBytes: Long = MAX_LOG_BYTES.toLong()) {
                 if (!file.isFile) return
                 output.putNextEntry(ZipEntry(name))
                 file.inputStream().use { input ->
                     val buffer = ByteArray(16 * 1024)
-                    var remaining = MAX_LOG_BYTES
+                    var remaining = maxBytes
                     while (remaining > 0) {
-                        val read = input.read(buffer, 0, minOf(buffer.size, remaining))
+                        val read = input.read(
+                            buffer,
+                            0,
+                            minOf(buffer.size.toLong(), remaining).toInt()
+                        )
                         if (read < 0) break
                         output.write(buffer, 0, read)
                         remaining -= read
@@ -271,6 +300,11 @@ internal object Diagnostics {
             addFile(CRASH_RUST, File(storage, CRASH_RUST))
             addFile(CRASH_JAVA, File(storage, CRASH_JAVA))
             addFile(CRASH_NATIVE, File(storage, CRASH_NATIVE))
+            addFile(
+                CRASH_NATIVE_TRACE,
+                File(storage, CRASH_NATIVE_TRACE),
+                Long.MAX_VALUE
+            )
         }
         return zip
     }
