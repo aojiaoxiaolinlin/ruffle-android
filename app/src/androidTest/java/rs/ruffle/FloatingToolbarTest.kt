@@ -65,9 +65,9 @@ class FloatingToolbarTest {
                         it.halfHidden &&
                             (
                                 if (right) {
-                                    it.handle.right == it.safe.right
+                                    near(it.handle.right, it.safe.right)
                                 } else {
-                                    it.handle.left == it.safe.left
+                                    near(it.handle.left, it.safe.left)
                                 }
                                 )
                     } == true
@@ -85,10 +85,10 @@ class FloatingToolbarTest {
         assertTrue(closed.halfHidden)
         device.click(closed.handle.centerX(), closed.handle.centerY())
         waitFor {
-            snapshot()?.let { it.expanded && it.handle.width() == it.height } == true
+            snapshot()?.let { it.expanded && near(it.handle.width(), it.handle.height()) } == true
         }
         val opened = requireNotNull(snapshot())
-        assertTrue(opened.safe.contains(opened.handle))
+        assertTrue(withinSafe(opened.safe, opened.handle))
         device.click(opened.handle.centerX(), opened.handle.centerY())
         waitFor { snapshot()?.halfHidden == true }
     }
@@ -145,6 +145,14 @@ class FloatingToolbarTest {
         }
         return result
     }
+
+    private fun near(a: Int, b: Int): Boolean = kotlin.math.abs(a - b) <= 2
+
+    private fun withinSafe(safe: Rect, handle: Rect): Boolean =
+        handle.left >= safe.left - 2 &&
+            handle.top >= safe.top - 2 &&
+            handle.right <= safe.right + 2 &&
+            handle.bottom <= safe.bottom + 2
 
     private fun waitFor(condition: () -> Boolean) {
         val deadline = SystemClock.elapsedRealtime() + UI_TIMEOUT

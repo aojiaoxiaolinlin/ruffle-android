@@ -79,14 +79,11 @@ class SmokeTest {
         waitForHelloTrace()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val menuButton = checkNotNull(
-            device.wait(Until.findObject(By.res(context.packageName, "button_cm")), LAUNCH_TIMEOUT)
+            device.wait(Until.findObject(By.res(context.packageName, "button_menu")), LAUNCH_TIMEOUT)
         )
         menuButton.click()
         val reload = checkNotNull(
-            device.wait(
-                Until.findObject(By.text(context.getString(rs.ruffle.R.string.reload_movie))),
-                LAUNCH_TIMEOUT
-            )
+            device.wait(Until.findObject(By.res(context.packageName, "button_reload")), LAUNCH_TIMEOUT)
         )
         traceOutput.writeText("Waiting for reload\n")
         reload.click()
