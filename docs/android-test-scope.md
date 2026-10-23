@@ -7,7 +7,8 @@
 - 删除依赖 Home、桌面识别、系统栏状态及多次前后台切换的 BackgroundPlaybackTest。
 - 删除旧 InputEvents 界面脚本：依赖桌面、固定 `rs.ruffle` 包名、屏幕坐标和外部键盘事件，不适合作为三个分支的通用 CI 前提。
 - 删除浮动菜单重载界面测试；此前浮动菜单边界与系统键盘界面集成测试也已按用户要求删除。
-- 删除 roco 登录页的桌面返回集成测试，保留本地 WebView fixture 验证 iframe 参数读取及 QQ 轮询脚本的测试。
+- 删除 roco 登录页的桌面返回集成测试。
+- 后续清理：Android 8 CI 镜像没有安装 WebView provider，iframe 参数读取与跨域 QQ 轮询脚本的两项 WebView 集成测试在初始化阶段失败（`MissingWebViewPackageException` / `ExceptionInInitializerError`）。按用户删除不合适测试的要求，删除剩余 RocoLoginFlowTest；不再让通用模拟器测试集依赖额外安装的 WebView。应用运行时仍保留 WebView 及登录脚本，FlashVars 解析、QQ 跳转规则和会话存储等逻辑测试继续保留。
 - 删除 Android 工程模板的 `2 + 2 = 4` 示例测试。
 - 清理上述已删除测试不再引用的 SWF 与生成源码。
 
