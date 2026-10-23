@@ -88,7 +88,7 @@ private val DarkText = Color(0xFF2A1800.toInt())
 private val Hairline = Color(0x26FFC46B)
 
 private const val AUTHOR_NAME = "傲娇小霖霖"
-private const val AUTHOR_QQ = "833462567"
+private const val AUTHOR_QQ = "1075919913"
 private const val AUTHOR_BILIBILI_URL = "https://space.bilibili.com/33570253"
 private const val AUTHOR_BILIBILI_DISPLAY = "space.bilibili.com/33570253"
 
