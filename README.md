@@ -4,7 +4,7 @@
 
 ## 中文
 
-`base` 是本仓库的共享 Android 开发分支，基于 [Ruffle](https://ruffle.rs)。它维护通用 SWF 播放器、中文输入与字体回退、HTTP 资源基址、崩溃诊断和设备测试等通用改进。
+`base` 是本仓库的共享 Android 开发分支，基于 [Ruffle](https://ruffle.rs)。它维护通用 SWF 播放器、中文输入与字体回退、HTTP 资源基址、崩溃诊断和设备测试等通用改进。经过本仓库的本地优化和改进，`base` 的运行稳定性和性能得到大幅提升。
 
 `base` 不是官方 Ruffle Android，也不通过 F-Droid 分发。请只从本仓库的 Releases 或 GitHub Actions 获取构建。
 
@@ -60,7 +60,7 @@
 
 ## English
 
-`base` is the shared Android development branch of this repository, built on [Ruffle](https://ruffle.rs). It maintains general improvements such as the SWF player, Chinese input and font fallback, HTTP resource base URLs, crash diagnostics, and device testing.
+`base` is the shared Android development branch of this repository, built on [Ruffle](https://ruffle.rs). It maintains general improvements such as the SWF player, Chinese input and font fallback, HTTP resource base URLs, crash diagnostics, and device testing. Local optimizations and improvements from this repository have significantly improved its runtime stability and performance.
 
 This is not the official Ruffle Android app, and it is not distributed through F-Droid. Use only builds from this repository's Releases or GitHub Actions.
 
