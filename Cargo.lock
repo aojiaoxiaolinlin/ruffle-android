@@ -2928,6 +2928,7 @@ dependencies = [
  "async-task",
  "backtrace",
  "fontdb",
+ "futures",
  "jni",
  "log",
  "ndk",

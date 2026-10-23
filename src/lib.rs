@@ -5,6 +5,7 @@ mod fonts;
 mod java;
 mod keycodes;
 mod navigator;
+mod renderer;
 mod trace;
 mod ui;
 
@@ -401,7 +402,7 @@ async fn run(app: AndroidApp) {
                                     (frame_rate_override > 0).then_some(f64::from(frame_rate_override));
                                 // TODO: make this take an Arc<Window> instead?
                                 let create_renderer = |backends: wgpu::Backends| unsafe {
-                                    WgpuRenderBackend::for_window_unsafe(
+                                    renderer::for_window(
                                         wgpu::SurfaceTargetUnsafe::RawHandle {
                                             raw_display_handle: Some(RawDisplayHandle::Android(
                                                 AndroidDisplayHandle::new(),
@@ -413,8 +414,6 @@ async fn run(app: AndroidApp) {
                                         },
                                         (dimensions.width, dimensions.height),
                                         backends,
-                                        wgpu::PowerPreference::HighPerformance,
-                                        None,
                                     )
                                 };
                                 // GLES is the stable default. Vulkan is faster on
