@@ -42,7 +42,10 @@ jobs:
       - name: Download exact build artifacts
         run: |
           artifact=ruffle-release-apks
-          if [ "$RELEASE_BRANCH" = kabu ]; then artifact=kabu-release-apks; fi
+          case "$RELEASE_BRANCH" in
+            kabu) artifact=kabu-release-apks ;;
+            roco) artifact=roco-release-apks ;;
+          esac
           gh run download "$BUILD_RUN_ID" --name "$artifact" --dir release-apks
 
       - name: Verify signature and read APK version
