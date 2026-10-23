@@ -1,5 +1,6 @@
 mod audio;
 mod custom_event;
+mod external;
 mod fonts;
 mod java;
 mod keycodes;
@@ -46,7 +47,7 @@ use ruffle_core::{
     backend::navigator::OwnedFuture,
     events::{LogicalKey, MouseButton, NamedKey, PlayerEvent, TextControlCode},
     tag_utils::SwfMovie,
-    Player, PlayerBuilder, ViewportDimensions,
+    Player, PlayerBuilder, StageAlign, StageScaleMode, ViewportDimensions,
 };
 use ruffle_frontend_utils::backends::storage::DiskStorageBackend;
 use ruffle_frontend_utils::content::PlayingContent;
@@ -381,12 +382,12 @@ async fn run(app: AndroidApp) {
                                     .unwrap();
                                 }
                             } else {
-                                let (url, bytes, base_url, auth_string, stage_quality, graphics_backend, frame_rate_override, soft_filter_scale) = with_activity(&app, |env, activity| {
+                                let (url, bytes, base_url, flash_vars, stage_quality, graphics_backend, frame_rate_override, soft_filter_scale) = with_activity(&app, |env, activity| {
                                     (
                                         JavaInterface::get_swf_uri(env, activity),
                                         JavaInterface::get_swf_bytes(env, activity),
                                         JavaInterface::get_base_url(env, activity),
-                                        JavaInterface::get_auth_string(env, activity),
+                                        JavaInterface::get_flash_vars(env, activity),
                                         JavaInterface::get_stage_quality(env, activity),
                                         JavaInterface::get_graphics_backend(env, activity),
                                         JavaInterface::get_frame_rate_override(env, activity),
@@ -449,11 +450,13 @@ async fn run(app: AndroidApp) {
                                     target: "ruffle",
                                     "soft filter scale: {soft_filter_scale}%"
                                 );
-                                let parameters = auth_string
-                                    .filter(|auth| !auth.is_empty())
-                                    .map(|auth| vec![("auth_string".to_owned(), auth)])
+                                let parameters = flash_vars
+                                    .filter(|vars| !vars.is_empty())
+                                    .map(|vars| url::form_urlencoded::parse(vars.as_bytes()).into_owned().collect::<Vec<_>>())
                                     .unwrap_or_default();
                                 let movie_url = Url::parse(&url).unwrap();
+                                let is_roco = movie_url.host_str() == Some("res.17roco.qq.com")
+                                    && movie_url.path() == "/main.swf";
                                 let base_url = base_url
                                     .and_then(|base| Url::parse(&base).ok())
                                     .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())
@@ -471,22 +474,27 @@ async fn run(app: AndroidApp) {
                                     None,
                                     future_spawner,
                                     None,
-                                    false,
+                                    true,
                                     Default::default(),
                                     ruffle_core::backend::navigator::SocketMode::Allow,
                                     Rc::new(PlayingContent::DirectFile(ContentDescriptor::new_remote(movie_url))),
-                                    AndroidNavigatorInterface,
+                                    AndroidNavigatorInterface { app: app.clone() },
                                 );
 
                                 playerbox = Some(ActivePlayer {
                                     id: player_id,
                                     player: PlayerBuilder::new()
                                             .with_renderer(renderer)
+                                            // Roco's 960x560 movie selects top-left alignment.
+                                            // Keep the original stage and center it in wide phone viewports.
+                                            .with_align(StageAlign::empty(), is_roco)
+                                            .with_scale_mode(StageScaleMode::ShowAll, is_roco)
                                             .with_quality(stage_quality_from_int(stage_quality))
                                             .with_frame_rate(frame_rate_override)
                                             .with_audio(AAudioAudioBackend::new().unwrap())
                                             .with_storage(Box::new(DiskStorageBackend::new(android_storage_dir.clone())))
                                             .with_navigator(navigator)
+                                            .with_external_interface(Box::new(external::RocoExternalInterface))
                                             .with_ui(ui::AndroidUiBackend::new(app.clone()))
                                             .with_log(FileLogBackend::new(trace_output.as_deref()))
                                             .with_video(

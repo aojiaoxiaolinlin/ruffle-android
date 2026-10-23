@@ -18,8 +18,10 @@ ktlint = "14.2.0"
 uiautomator = "2.3.0"
 androidXTestRunner = "1.7.0"
 androidXTestRules = "1.7.0"
+webkit = "1.14.0"
 
 [libraries]
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

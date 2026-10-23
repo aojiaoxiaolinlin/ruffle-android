@@ -90,8 +90,8 @@ class PlayerActivity : GameActivity() {
 
     @Suppress("unused")
     // Used by Rust; never put this value in the SWF URL or logs.
-    private val authString: String?
-        get() = intent.getStringExtra("authString")
+    private val flashVars: String?
+        get() = intent.getStringExtra("flashVars")
 
     @Suppress("unused")
     // Used by Rust
@@ -103,7 +103,22 @@ class PlayerActivity : GameActivity() {
     @Suppress("unused")
     // Used by Rust
     private fun navigateToUrl(url: String?) {
-        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        if (url == null) return
+        runOnUiThread {
+            if (RocoSession.isLoginUrl(url)) {
+                reauthorize()
+            } else {
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            }
+        }
+    }
+
+    private fun reauthorize() {
+        RocoSessionStore(this).clear()
+        startActivity(
+            Intent(this, RocoLoginActivity::class.java).putExtra("reauthorize", true)
+        )
+        finish()
     }
 
     private var loc = IntArray(2)
@@ -214,10 +229,15 @@ class PlayerActivity : GameActivity() {
                 }
             }
             val exitItemId = items.size
+            val loginItemId = items.size + 1
+            if (intent.data?.host == "res.17roco.qq.com" && intent.data?.path == "/main.swf") {
+                menu.add(group + 1, loginItemId, Menu.NONE, "重新授权 / 切换账号")
+            }
             menu.add(group + 1, exitItemId, Menu.NONE, R.string.exit_player)
             popup.setOnMenuItemClickListener { item: MenuItem ->
                 when (item.itemId) {
                     exitItemId -> finish()
+                    loginItemId -> reauthorize()
                     else -> runContextMenuCallback(item.itemId)
                 }
                 true
@@ -584,7 +604,10 @@ class PlayerActivity : GameActivity() {
         appliedSurfaceWidth = scaledWidth
         appliedSurfaceHeight = scaledHeight
         view.holder.setFixedSize(scaledWidth, scaledHeight)
-        Log.i("ruffle", "Render scale $scale: ${width}x$height -> ${scaledWidth}x$scaledHeight")
+        Log.i(
+            "ruffle",
+            "Render scale $scale: ${width}x$height -> ${scaledWidth}x$scaledHeight"
+        )
     }
 
     private fun showPlayerSettings() {

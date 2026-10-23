@@ -2,7 +2,6 @@ package rs.ruffle
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -30,55 +29,31 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private val Amber = Color(0xFFF8A72D.toInt())
 private val TextPrimary = Color(0xFFF7E9D7.toInt())
@@ -88,80 +63,22 @@ private val DarkText = Color(0xFF2A1800.toInt())
 private val Hairline = Color(0x26FFC46B)
 
 private const val AUTHOR_NAME = "傲娇小霖霖"
-private const val AUTHOR_QQ = "833462567"
+private const val AUTHOR_QQ = "1075919913"
 private const val AUTHOR_BILIBILI_URL = "https://space.bilibili.com/33570253"
 private const val AUTHOR_BILIBILI_DISPLAY = "space.bilibili.com/33570253"
 
 @Composable
-fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
+fun RocoLoginScreen() {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val store = remember { RememberedLoginStore(context.applicationContext) }
-    var username by rememberSaveable { mutableStateOf("") }
-    // Passwords stay out of instance state; persistence is opt-in and encrypted.
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var rememberLogin by remember { mutableStateOf(false) }
-    var loadingSaved by remember { mutableStateOf(true) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(store) {
-        val saved = withContext(Dispatchers.IO) { store.load() }
-        if (saved != null) {
-            username = saved.username
-            password = saved.password
-            rememberLogin = true
-        }
-        loadingSaved = false
-    }
-
-    fun setRememberLogin(checked: Boolean) {
-        rememberLogin = checked
-        if (!checked) {
-            busy = true
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) { store.clear() }
-                } finally {
-                    busy = false
-                }
-            }
-        }
-    }
-
     val submit = {
-        if (!busy && !loadingSaved && username.isNotBlank() && password.isNotEmpty()) {
-            busy = true
-            error = null
-            val account = username.trim()
-            val secret = password
-            scope.launch {
-                try {
-                    val auth =
-                        withContext(Dispatchers.IO) { KabuLoginClient().login(account, secret) }
-                    val saved = withContext(Dispatchers.IO) {
-                        runCatching {
-                            if (rememberLogin) store.save(account, secret) else store.clear()
-                        }.isSuccess
-                    }
-                    if (!saved) {
-                        Toast.makeText(context, "登录成功，但保存账号密码失败", Toast.LENGTH_LONG).show()
-                    }
-                    if (!rememberLogin) password = ""
-                    openGame(Uri.parse(KabuLoginClient.GAME_SWF), KabuLoginClient.BASE_URL, auth)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    // Do not expose transport exceptions, URLs, cookies or credentials.
-                    error =
-                        if (failure is KabuLoginException) failure.message else "登录失败，请检查网络和账号密码后重试"
-                } finally {
-                    busy = false
-                }
-            }
-        }
+        context.startActivity(android.content.Intent(context, RocoLoginActivity::class.java))
+    }
+    val reauthorize = {
+        context.startActivity(
+            android.content.Intent(context, RocoLoginActivity::class.java)
+                .putExtra("reauthorize", true)
+        )
     }
 
     val copyQq: () -> Unit = {
@@ -187,7 +104,7 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
             )
     ) {
         Image(
-            painter = painterResource(R.drawable.kabu_icon),
+            painter = painterResource(R.drawable.roco_art),
             contentDescription = null,
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -246,20 +163,8 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                         }
                         LoginFormCard(
                             modifier = Modifier.weight(1.1f),
-                            username = username,
-                            onUsernameChange = { username = it },
-                            password = password,
-                            onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible,
-                            onTogglePasswordVisible = {
-                                passwordVisible = !passwordVisible
-                            },
-                            rememberLogin = rememberLogin,
-                            onRememberChange = { setRememberLogin(it) },
-                            busy = busy,
-                            loadingSaved = loadingSaved,
-                            error = error,
                             onSubmit = { submit() },
+                            onReauthorize = { reauthorize() },
                             compact = true
                         )
                     }
@@ -274,20 +179,8 @@ fun KabuLoginScreen(openGame: (Uri, String, String) -> Unit) {
                         BrandingBlock(compact = false)
                         LoginFormCard(
                             modifier = Modifier.fillMaxWidth(),
-                            username = username,
-                            onUsernameChange = { username = it },
-                            password = password,
-                            onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible,
-                            onTogglePasswordVisible = {
-                                passwordVisible = !passwordVisible
-                            },
-                            rememberLogin = rememberLogin,
-                            onRememberChange = { setRememberLogin(it) },
-                            busy = busy,
-                            loadingSaved = loadingSaved,
-                            error = error,
                             onSubmit = { submit() },
+                            onReauthorize = { reauthorize() },
                             compact = false
                         )
                         AuthorCard(
@@ -329,18 +222,19 @@ private fun BrandingBlock(compact: Boolean) {
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(R.drawable.kabu_icon),
+                painter = painterResource(R.drawable.roco_icon),
                 contentDescription = null,
                 modifier = Modifier
                     .size(logoSize)
                     .clip(RoundedCornerShape(corner))
                     .border(1.dp, Color(0x66FFC46B), RoundedCornerShape(corner)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.Center
             )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "卡布西游",
+                text = "洛克王国",
                 fontSize = if (compact) 26.sp else 32.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 2.sp,
@@ -348,7 +242,7 @@ private fun BrandingBlock(compact: Boolean) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "游戏不卡 · 登录 4399 账号，开启西游冒险",
+                text = "游戏不卡 · 登录 QQ 账号，开启魔法冒险",
                 style = if (compact) {
                     MaterialTheme.typography.labelMedium
                 } else {
@@ -364,22 +258,10 @@ private fun BrandingBlock(compact: Boolean) {
 @Composable
 private fun LoginFormCard(
     modifier: Modifier,
-    username: String,
-    onUsernameChange: (String) -> Unit,
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    passwordVisible: Boolean,
-    onTogglePasswordVisible: () -> Unit,
-    rememberLogin: Boolean,
-    onRememberChange: (Boolean) -> Unit,
-    busy: Boolean,
-    loadingSaved: Boolean,
-    error: String?,
     onSubmit: () -> Unit,
+    onReauthorize: () -> Unit,
     compact: Boolean
 ) {
-    val focusManager = LocalFocusManager.current
-    val formEnabled = !busy && !loadingSaved
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(if (compact) 22.dp else 26.dp),
@@ -388,202 +270,31 @@ private fun LoginFormCard(
         shadowElevation = 14.dp
     ) {
         Column(
-            modifier = Modifier.padding(if (compact) 16.dp else 20.dp),
-            verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 14.dp)
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            LoginField(
-                value = username,
-                onValueChange = onUsernameChange,
-                label = "4399账号",
-                leadingIcon = R.drawable.ic_person,
-                enabled = formEnabled,
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                )
+            Text("QQ 官方登录", color = TextPrimary, fontWeight = FontWeight.Bold)
+            Text(
+                "自动保存并复用登录信息，有效时直接进入游戏。首次登录或失效后使用 QQ 官方授权。",
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodyMedium
             )
-            LoginField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = "密码",
-                leadingIcon = R.drawable.ic_lock,
-                enabled = formEnabled,
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Go,
-                keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-                visualTransformation = if (passwordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                trailingIcon = {
-                    Text(
-                        text = if (passwordVisible) "隐藏" else "显示",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Amber,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onTogglePasswordVisible)
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                    )
-                }
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable(enabled = formEnabled) {
-                        onRememberChange(!rememberLogin)
-                    }
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Checkbox(
-                    checked = rememberLogin,
-                    enabled = formEnabled,
-                    onCheckedChange = onRememberChange,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Amber,
-                        checkmarkColor = DarkText,
-                        uncheckedColor = Color(0x66FFFFFF),
-                        disabledCheckedColor = Amber.copy(alpha = 0.4f),
-                        disabledUncheckedColor = Color(0x33FFFFFF)
-                    )
-                )
-                Column {
-                    Text(
-                        "记住账号密码",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextPrimary
-                    )
-                    Text(
-                        "仅加密保存在本机",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
-                }
-            }
-
-            error?.let { message ->
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0x33FF5449)
-                ) {
-                    SelectionContainer {
-                        Text(
-                            message,
-                            modifier = Modifier.padding(
-                                horizontal = 12.dp,
-                                vertical = 10.dp
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFFFB4AB.toInt())
-                        )
-                    }
-                }
-            }
-
             Button(
                 onClick = onSubmit,
-                enabled = formEnabled && username.isNotBlank() && password.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (compact) 48.dp else 52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Amber,
-                    contentColor = DarkText,
-                    disabledContainerColor = Color(0x33F8A72D),
-                    disabledContentColor = Color(0x802A1800.toInt())
+                    contentColor = DarkText
                 )
             ) {
-                if (busy || loadingSaved) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = DarkText,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(
-                    when {
-                        busy -> "正在登录…"
-                        loadingSaved -> "正在载入…"
-                        else -> "登录并进入游戏"
-                    },
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("进入游戏", fontWeight = FontWeight.Bold)
             }
-
-            if (!compact) {
-                Text(
-                    "勾选后会加密保存账号密码；游戏中可拖动侧边按钮调整位置。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary.copy(alpha = 0.8f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            TextButton(onClick = onReauthorize, modifier = Modifier.fillMaxWidth()) {
+                Text("重新授权 / 切换账号", color = Amber)
             }
         }
     }
-}
-
-@Composable
-private fun LoginField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    leadingIcon: Int,
-    enabled: Boolean,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    imeAction: ImeAction = ImeAction.Next,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailingIcon: (@Composable () -> Unit)? = null
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        leadingIcon = {
-            Icon(
-                painter = painterResource(leadingIcon),
-                contentDescription = null,
-                tint = Amber
-            )
-        },
-        trailingIcon = trailingIcon,
-        enabled = enabled,
-        singleLine = true,
-        shape = RoundedCornerShape(16.dp),
-        visualTransformation = visualTransformation,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = keyboardType,
-            imeAction = imeAction
-        ),
-        keyboardActions = keyboardActions,
-        modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            disabledTextColor = TextSecondary,
-            cursorColor = Amber,
-            focusedBorderColor = Amber,
-            unfocusedBorderColor = Color(0x33FFFFFF),
-            disabledBorderColor = Color(0x1FFFFFFF),
-            focusedLabelColor = Amber,
-            unfocusedLabelColor = TextSecondary,
-            disabledLabelColor = TextSecondary,
-            focusedLeadingIconColor = Amber,
-            unfocusedLeadingIconColor = TextSecondary,
-            disabledLeadingIconColor = TextSecondary,
-            focusedContainerColor = Color(0x14FFFFFF),
-            unfocusedContainerColor = Color(0x0AFFFFFF),
-            disabledContainerColor = Color(0x05FFFFFF)
-        )
-    )
 }
 
 @Composable

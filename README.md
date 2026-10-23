@@ -1,30 +1,57 @@
-# 卡布 Android
+# 洛克王国 Android
 
-The `kabu` branch is a Kabu Xiyou launcher built on [Ruffle](https://ruffle.rs).
-Install **卡布**, enter your 4399 username and password, and tap **登录并进入游戏**.
-It obtains a fresh `auth_string` using the same protocol as `kabu-login`, then opens
-`GreenGame.swf` with the token as a FlashVar and the game's resource base URL configured automatically.
-Passwords are not saved to files, preferences or saved instance state, and are not logged.
-Accounts requiring a CAPTCHA cannot complete verification in this shortcut login screen.
+`roco` 分支基于 `kabu`，复用游戏播放器、输入法、浮动工具栏和设置界面。
+安装后点击 **进入游戏**，优先使用已保存的游戏会话直接启动；首次使用时在腾讯官方页面完成 QQ 授权。
+正式包名为 `rs.ruffle.roco`，本地包名为 `rs.ruffle.roco.local`，可与卡布客户端同时安装。
 
-The menu button opens a small floating toolbar. Drag it to move the toolbar;
-it docks to the nearest side and stays inside the display's safe area. The menu includes **重新加载**,
-which restarts the player with the same game and launch parameters. Exit returns to the login screen.
+登录使用同一个 WebView 的 UA、Cookie 和官方页面：
+`login.html` → QQ OAuth → 拦截 `logintarget.html?code=…` →
+`login3?code=…&platfrom_src=2` → 从官方响应 HTML/JS 中提取 FlashVars。
+默认使用官方 mobile 登录页，并提供桌面扫码登录切换。
+手机 QQ 按钮使用官方 `pt.qrcode.get(1)`：生成官方二维码会话并唤起 QQ 确认，
+原 WebView 的官方轮询器继续等待结果。通过 AndroidX WebKit 的 document-start API，
+仅在 `https://xui.ptlogin2.qq.com/cgi-bin/xlogin` 中接入按钮事件。
+仅允许携带官方 `qrcode` 的 `wtloginmqq://ptlogin/qlogin` 唤起请求，
+移除浏览器返回地址，保留客户端自己的 `schemacallback` 作为返回提示，
+该回调只恢复原 WebView，不加载回调中的 URL 或票据；认证信息始终通过原会话轮询获取。
+拒绝会将认证结果交给外部浏览器的 `p=` 方式。
+QQ 确认后返回应用，会自动读取 HTML 并启动游戏；无需手工复制认证信息。
+启动 QQ 时使用 FLAG_ACTIVITY_NEW_TASK，让 QQ 授权页与客户端分处独立任务。
+QQ 二维码授权结束时会把其所在任务切到后台；隔离任务后不会再连带隐藏客户端。
+已在当前手机 QQ 实测确认后自动返回客户端并进入原生游戏，无需手动再次打开应用。
+游戏 OAuth 参数和认证服务保持官方原样，没有集成或冒用腾讯游戏的原生 QQ SDK 身份。
+旧 WebView 不支持 document-start 时，可使用扫码或密码登录。
+授权码由原生网络层使用相同 UA 和 WebView Cookie 兑换；覆盖 iframe 回调并去重，
+DOM 轮询作为兜底，回到前台继续检测。入口使用 `singleTop`，避免桌面重入清除登录页。
+应用不绘制 QQ 密码表单。
+校验 `angel_uin`、`angel_key`、`skey`、`pskey` 后，通过 Intent/JNI 传给 Ruffle，
+加载 `https://res.17roco.qq.com/main.swf`，base 和 config 使用同一资源域名。
+票据使用 Android Keystore AES-GCM 加密保存到 noBackupFilesDir，不进入日志或系统备份。
+重启、覆盖更新和退出游戏保留会话，不凭空设置本地过期时间；有效性由游戏服务器校验。
+官方登录页跳转会清除旧会话并在应用内重新授权；主页和游戏菜单也提供“重新授权 / 切换账号”。
+网络故障不会自动清除会话。官方网页登录 Cookie 由 Android WebView 管理并在授权成功后落盘。
 
-Tap a Flash text field to open the phone's input method.
-Chinese composition, committed Unicode text, backspace and forward delete are supported.
-The keyboard overlays the game without resizing its render surface. For a movable small
-keyboard, enable **悬浮键盘** / **游戏键盘** in your input method's own menu; its appearance
-and availability depend on the installed input method. Back or the IME's Done button hides it.
-Baidu Input Honor's dedicated game keyboard is a separate mode controlled by the input method's
-application recognition. On the tested device, enabling its game-keyboard switch and declaring
-the app as a game did not activate that mode for Ruffle; ordinary floating mode remains available.
+官方 main.swf 的舞台为 960×560；Roco 播放强制 ShowAll 和居中对齐，避免 SWF 的左上对齐在宽屏手机上留下单边空白。
+SurfaceView 保持全屏，低分辨率渲染只调整缓冲区，不通过 View 变换改变画布和触控位置。
 
-The application ID is `rs.ruffle.kabu`, so this build can coexist with the general Ruffle app.
-The app label is **卡布**, and CI produces `卡布-<ABI>-release.apk` files in the **kabu-release-apks** artifact.
-Pushes to `kabu` automatically trigger the Build workflow. The `main` branch remains aligned with upstream;
-general Android improvements are maintained on `base`.
-Release versions use tags; the shared development branch name stays unchanged.
+原生 TCP 使用已有的 SocketMode::Allow；ExternalInterface 提供
+`get_platfrom_src() -> "2"`，其余页面钩子返回 Undefined。
+游戏资源请求启用 HTTP → HTTPS 升级。
+应用图标与登录页顶部标识使用登录分析目录提供的 `roco.png` 原图。
+登录页背景图片来源：腾讯官方登录背景
+`https://res.17roco.qq.com/images/V2/loginbg-20160418.jpg`。
+
+验证：Kotlin 编译、FlashVars 编解码/缺失参数/模板占位符单元测试、Android ARM64 Rust 检查。
+已在真机验证启动、官方 QQ 二维码/密码登录入口，以及“一键登录”唤起
+`com.tencent.open.agent.QuickLoginAuthorityActivity`。
+两个真机回归测试覆盖从桌面返回保留登录 WebView、从 iframe 读取 FlashVars。
+会话存储的三项真机测试覆盖 Keystore 加密持久化、损坏回退和无效票据不覆盖有效会话，均已通过。
+舞台居中已由用户和截图确认：2800×1280 屏幕左右各留 302px 黑边，游戏内容保持 960:560 比例。
+已在授权保存后强制关闭进程，重开并直接复用加密票据，经选服“快速进入”再次进入王国城堡，全程无需 QQ 授权。
+已由用户一键授权并进入洛克王国，真机显示登录礼包画面。
+正式接入后的再次验证已到原生推荐服务器界面，Activity 栈中只保留主页和 PlayerActivity，
+没有登录 WebView Activity。后续玩法兼容性仍需继续验证。
+构建工作流包含 `roco` 分支，产物为 **roco-release-apks**。
 
 The general Ruffle documentation below applies to the non-Kabu build unless otherwise stated.
 

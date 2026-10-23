@@ -27,14 +27,14 @@ android {
         // Local builds use a separate id so they can coexist with the
         // CI-signed release and keep using different signing keys.
         applicationId = if (project.hasProperty("diagnosticBuild")) {
-            "rs.ruffle.kabu.diagnostics"
+            "rs.ruffle.roco.diagnostics"
         } else if (project.hasProperty("localBuild")) {
-            "rs.ruffle.kabu.local"
+            "rs.ruffle.roco.local"
         } else {
-            "rs.ruffle.kabu"
+            "rs.ruffle.roco"
         }
         manifestPlaceholders["appLabel"] = if (project.hasProperty("diagnosticBuild")) {
-            "游戏不卡（诊断）"
+            "洛克王国（诊断）"
         } else {
             "@string/app_name"
         }
@@ -163,6 +163,7 @@ dependencies {
 
     implementation(project(":rustls-platform-verifier"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.webkit)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

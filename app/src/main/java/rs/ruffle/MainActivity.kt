@@ -1,7 +1,5 @@
 package rs.ruffle
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,22 +18,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             RuffleTheme {
                 Box(Modifier.fillMaxSize()) {
-                    KabuLoginScreen { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
+                    RocoLoginScreen()
                     CrashPrompt()
                 }
             }
         }
-    }
-
-    private fun openSwf(uri: Uri, baseUrl: String?, auth: String) {
-        val intent = Intent(
-            this@MainActivity,
-            PlayerActivity::class.java
-        ).apply {
-            data = uri
-            putExtra("baseUrl", baseUrl)
-            putExtra("authString", auth)
-        }
-        startActivity(intent)
     }
 }

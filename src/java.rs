@@ -18,7 +18,7 @@ pub struct JavaInterface {
     get_swf_bytes: JMethodID,
     get_swf_uri: JMethodID,
     get_base_url: JMethodID,
-    get_auth_string: JMethodID,
+    get_flash_vars: JMethodID,
     get_trace_output: JMethodID,
     get_loc_in_window: JMethodID,
     get_android_data_storage_dir: JMethodID,
@@ -125,12 +125,12 @@ impl JavaInterface {
         Some(string_object.try_to_string(env).unwrap())
     }
 
-    pub fn get_auth_string(env: &mut Env, this: &JObject) -> Option<String> {
+    pub fn get_flash_vars(env: &mut Env, this: &JObject) -> Option<String> {
         let result = unsafe {
-            env.call_method_unchecked(this, Self::get().get_auth_string, ReturnType::Object, &[])
+            env.call_method_unchecked(this, Self::get().get_flash_vars, ReturnType::Object, &[])
         };
         let object = result
-            .expect("getAuthString() must never throw")
+            .expect("getFlashVars() must never throw")
             .l()
             .unwrap();
         if object.is_null() {
@@ -321,13 +321,13 @@ impl JavaInterface {
                     jni_sig!("()Ljava/lang/String;"),
                 )
                 .expect("getBaseUrl must exist"),
-            get_auth_string: env
+            get_flash_vars: env
                 .get_method_id(
                     class,
-                    jni_str!("getAuthString"),
+                    jni_str!("getFlashVars"),
                     jni_sig!("()Ljava/lang/String;"),
                 )
-                .expect("getAuthString must exist"),
+                .expect("getFlashVars must exist"),
             get_trace_output: env
                 .get_method_id(
                     class,
