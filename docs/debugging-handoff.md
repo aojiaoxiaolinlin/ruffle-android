@@ -13,7 +13,7 @@
 | 画质与 MSAA 上限验证 | [msaa-cap-validation-2026-10-21.md](msaa-cap-validation-2026-10-21.md) |
 | 较早的真机测试与性能采样 | [device-test-results-2026-10-21.md](device-test-results-2026-10-21.md) |
 | 副本退出时 Loader 卸载重入崩溃及已验证修复 | [dungeon-exit-crash-2026-10-23.md](dungeon-exit-crash-2026-10-23.md) |
-| roco CI 包的 GLES 崩溃、待验证判断与暂缓修改决定 | [roco-gles-crash-2026-10-23.md](roco-gles-crash-2026-10-23.md) |
+| roco、kabu 的 GLES 崩溃及禁用 GPU 调试标签规避 | [roco-gles-crash-2026-10-23.md](roco-gles-crash-2026-10-23.md) |
 | OnePlus 再次出现同类 GLES 崩溃、roco 已实施规避 | [roco-gles-oneplus-crash-2026-10-23.md](roco-gles-oneplus-crash-2026-10-23.md) |
 | 固定发布签名、版本号及覆盖更新 | [android-release-updates.md](android-release-updates.md) |
 | 公共 Android 能力回移到 base 的范围 | [shared-android-backport-2026-10-22.md](shared-android-backport-2026-10-22.md) |
@@ -24,7 +24,7 @@
 
 - base、kabu、roco 已按用户要求删除浮动菜单和系统键盘两项界面集成测试，保留输入逻辑测试；提交分别为 `4f0e433`、`2f32f25`、`6b5cf37`，均已推送。
 - kabu `8c410ac`、roco `1740980` 已推送：完整保存原生 tombstone，ANR trace 保持文本可读。kabu 另有格式提交 `e3eb64e`。
-- roco CI 安装包 `0.261022.83` 于 15:16:01 崩溃，初步指向 Adreno GLES 调试字符串越界；尚未证明完整调用链或验证规避方案。用户决定继续正常游玩，再次崩溃后先核对新日志，同类问题再禁用 GPU 调试标签。当前没有实施该渲染修改。
+- roco CI 安装包 `0.261022.83` 于 15:16:01 崩溃；kabu `0.261022.79` 于 20:18:57 再次出现同类 Adreno GLES 调试字符串越界证据。用户已要求关闭 GPU 调试标签，核心 `0c0fa8be64903b93cceb9633fb0424c6f20db74b` 实施 Android GLES 规避，kabu、roco 同步固定依赖。ARM64 核心编译检查通过，尚待修复后真机游玩验证，详见上述崩溃记录。
 - 后续更新：15:55:20，OnePlus / Adreno 830 在旧版 `.83` 上出现同类字符串复制崩溃，直接保留下同一标签的内存摘录。按此前决定在 roco 实施关闭 GLES debug functions 并丢弃 HAL 标签的规避；普通及 JPEG XR 配置的 ARM64 编译/Clippy 已通过，新包实际游玩验证待完成。
 - 正式 roco 与卡布包使用同一签名证书，包名不同，数据与更新独立。
 
