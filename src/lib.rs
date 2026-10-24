@@ -455,7 +455,7 @@ async fn run(app: AndroidApp) {
                                     .unwrap_or_default();
                                 let movie_url = Url::parse(&url).unwrap();
                                 let is_roco = movie_url.host_str() == Some("res.17roco.qq.com")
-                                    && movie_url.path() == "/main.swf";
+                                    && matches!(movie_url.path(), "/main.swf" | "/swf/night.swf");
                                 let base_url = base_url
                                     .and_then(|base| Url::parse(&base).ok())
                                     .filter(|base| matches!(base.scheme(), "http" | "https") && base.has_host())

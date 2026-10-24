@@ -8,6 +8,7 @@ import java.net.URLEncoder
 object RocoSession {
     const val BASE_URL = "https://res.17roco.qq.com/"
     const val GAME_SWF = "${BASE_URL}main.swf"
+    const val NIGHT_SWF = "${BASE_URL}swf/night.swf"
     private val tickets = listOf("angel_uin", "angel_key", "skey", "pskey")
 
     fun isLoginUrl(raw: String): Boolean = runCatching {
@@ -20,6 +21,11 @@ object RocoSession {
                     uri.path == "/fcgi-bin/login3"
                 )
     }.getOrDefault(false)
+
+    /** Official night-protection response: it references the notice SWF and has no tickets. */
+    fun isNightNotice(html: String, url: String? = null): Boolean =
+        html.contains("night.swf", ignoreCase = true) ||
+            url?.contains("night.swf", ignoreCase = true) == true
 
     /** Works for object/embed markup and the official template's JS string fragments. */
     fun fromHtml(html: String): String? {
