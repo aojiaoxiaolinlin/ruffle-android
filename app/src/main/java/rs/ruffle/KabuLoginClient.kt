@@ -85,11 +85,7 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
         if (login.status != 200) {
             throw KabuLoginException("登录失败（HTTP ${login.status}），请检查账号密码；若触发验证码，当前快捷登录无法完成验证")
         }
-        val returnUrl = "http://news.4399.com/login/kbxy.html?reg=0&pass=1&v=" +
-            System.currentTimeMillis()
-        val checkUrl = "http://$host/ptlogin/checkKidLoginUserCookie.do?appId=$APP_ID" +
-            "&level=8&loginLevel=8&regLevel=8&bizId=$BIZ_ID&canBack=true" +
-            "&gameUrl=${encode(GAME_PAGE)}&retUrl=${encode(returnUrl)}"
+        val checkUrl = checkKidLoginUrl(host)
         val redirect = request(
             checkUrl,
             headers = mapOf("Referer" to "http://www.4399.com/flash/48399.htm"),
@@ -187,6 +183,18 @@ class KabuLoginClient internal constructor(private val hosts: List<String> = HOS
         private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
         private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+        internal fun defaultReturnUrl(): String =
+            "http://news.4399.com/login/kbxy.html?reg=0&pass=1&v=" +
+                System.currentTimeMillis()
+
+        /** Same ticket request for password and QQ logins. */
+        internal fun checkKidLoginUrl(
+            host: String,
+            returnUrl: String = defaultReturnUrl()
+        ): String = "http://$host/ptlogin/checkKidLoginUserCookie.do?appId=$APP_ID" +
+            "&level=8&loginLevel=8&regLevel=8&bizId=$BIZ_ID&canBack=true" +
+            "&gameUrl=${encode(GAME_PAGE)}&retUrl=${encode(returnUrl)}"
 
         internal fun loginPageProblem(status: Int, body: String): String? = when {
             status != 200 -> "服务器返回 HTTP $status"

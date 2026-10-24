@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <queries>
+        <package android:name="com.tencent.mobileqq" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -51,6 +55,21 @@
             android:name=".PanicActivity"
             android:launchMode="singleTask"
             android:exported="false">
+        </activity>
+        <activity
+            android:name=".KabuQqLoginActivity"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:windowSoftInputMode="adjustResize"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Ruffle.Player">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}.qqlogin" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".PlayerActivity"

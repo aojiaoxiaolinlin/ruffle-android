@@ -42,6 +42,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -97,7 +98,8 @@ private const val AUTHOR_BILIBILI_DISPLAY = "space.bilibili.com/33570253"
 fun KabuLoginScreen(
     sessionVersion: Int = 0,
     sessionExpired: Boolean = false,
-    openGame: (Uri, String, String) -> Unit
+    openGame: (Uri, String, String) -> Unit,
+    onQqLogin: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -304,6 +306,7 @@ fun KabuLoginScreen(
                                 loadingSaved = loadingSaved,
                                 error = error,
                                 onSubmit = { submit() },
+                                onQqLogin = onQqLogin,
                                 compact = true
                             )
                         }
@@ -349,6 +352,7 @@ fun KabuLoginScreen(
                                 loadingSaved = loadingSaved,
                                 error = error,
                                 onSubmit = { submit() },
+                                onQqLogin = onQqLogin,
                                 compact = false
                             )
                         }
@@ -438,6 +442,7 @@ private fun LoginFormCard(
     loadingSaved: Boolean,
     error: String?,
     onSubmit: () -> Unit,
+    onQqLogin: () -> Unit,
     compact: Boolean
 ) {
     val focusManager = LocalFocusManager.current
@@ -579,6 +584,52 @@ private fun LoginFormCard(
                 )
             }
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    color = Color(0x1FFFFFFF),
+                    thickness = 1.dp
+                )
+                Text(
+                    "或",
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary
+                )
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    color = Color(0x1FFFFFFF),
+                    thickness = 1.dp
+                )
+            }
+            OutlinedButton(
+                onClick = onQqLogin,
+                enabled = formEnabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (compact) 44.dp else 48.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0x66FFC46B)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Amber)
+            ) {
+                Text(
+                    "使用 QQ 登录",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+            if (!compact) {
+                Text(
+                    "使用手机 QQ 授权，不会在本应用输入 QQ 密码。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             if (!compact) {
                 Text(
                     "勾选后会加密保存账号密码；游戏中可拖动侧边按钮调整位置。",

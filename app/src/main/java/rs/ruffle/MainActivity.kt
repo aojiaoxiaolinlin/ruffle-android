@@ -1,11 +1,14 @@
 package rs.ruffle
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
@@ -18,6 +21,34 @@ import rs.ruffle.ui.theme.RuffleTheme
 class MainActivity : ComponentActivity() {
     private var sessionVersion by mutableIntStateOf(0)
     private var sessionExpired by mutableStateOf(false)
+
+    private val qqLoginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val auth = result.data
+                ?.getStringExtra(KabuQqLoginActivity.RESULT_AUTH)
+                .orEmpty()
+            val validated = runCatching { KabuSession.parse(auth) }.getOrNull()
+            if (validated == null) {
+                Toast.makeText(this, "QQ 登录凭据无效，请重试", Toast.LENGTH_LONG).show()
+            } else {
+                sessionVersion += 1
+                openSwf(
+                    Uri.parse(KabuLoginClient.GAME_SWF),
+                    KabuLoginClient.BASE_URL,
+                    validated
+                )
+            }
+        } else {
+            val error = result.data
+                ?.getStringExtra(KabuQqLoginActivity.RESULT_ERROR)
+                .orEmpty()
+            if (error.isNotBlank()) {
+                Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -32,8 +63,14 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize()) {
                     KabuLoginScreen(
                         sessionVersion = sessionVersion,
-                        sessionExpired = sessionExpired
-                    ) { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) }
+                        sessionExpired = sessionExpired,
+                        openGame = { uri, baseUrl, auth -> openSwf(uri, baseUrl, auth) },
+                        onQqLogin = {
+                            qqLoginLauncher.launch(
+                                KabuQqLoginActivity.newIntent(this@MainActivity)
+                            )
+                        }
+                    )
                     CrashPrompt()
                 }
             }
