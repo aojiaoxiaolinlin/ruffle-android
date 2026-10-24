@@ -62,4 +62,27 @@ class RocoSessionTest {
         )
         org.junit.Assert.assertNull(RocoSession.fromHtml("&angel_uin=123&angel_key=a&skey=b"))
     }
+
+    @Test
+    fun recognizesNightProtectionResponses() {
+        assertTrue(
+            RocoSession.isNightNotice(
+                """<object data="//res.17roco.qq.com/swf/night.swf"></object>"""
+            )
+        )
+        assertTrue(
+            RocoSession.isNightNotice("", "https://res.17roco.qq.com/swf/night.swf")
+        )
+        assertFalse(
+            RocoSession.isNightNotice(
+                """<embed flashvars="angel_uin=1&angel_key=a&skey=b&pskey=c">""",
+                "https://web2.17roco.qq.com/fcgi-bin/login3"
+            )
+        )
+    }
+
+    @Test
+    fun nightNoticeUsesResourceBaseUrl() {
+        assertEquals("https://res.17roco.qq.com/swf/night.swf", RocoSession.NIGHT_SWF)
+    }
 }

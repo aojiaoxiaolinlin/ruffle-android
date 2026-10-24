@@ -42,6 +42,8 @@
 
 校验 `angel_uin`、`angel_key`、`skey`、`pskey` 后，通过 Intent/JNI 传给 Ruffle，加载 `https://res.17roco.qq.com/main.swf`，base 和 config 使用同一资源域名。
 
+夜间保护时段官方会返回不含票据的提示页（包含 `//res.17roco.qq.com/swf/night.swf` 和 `parents.shtml` 链接）。客户端识别 `night.swf` 后不会把它载入登录 WebView，也不会写入或清除已保存会话，而是直接以 `https://res.17roco.qq.com/swf/night.swf` 启动播放器并显示 Toast 提示；该提示页同样使用 Roco 的 ShowAll 和居中对齐。
+
 票据使用 Android Keystore AES-GCM 加密保存到 `noBackupFilesDir`，不进入日志或系统备份。重启、覆盖更新和退出游戏保留会话，不凭空设置本地过期时间；有效性由游戏服务器校验。网络故障不会自动清除会话。官方网页登录 Cookie 由 Android WebView 管理并在授权成功后落盘。
 
 ## 渲染与兼容

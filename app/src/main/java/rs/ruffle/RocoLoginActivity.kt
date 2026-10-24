@@ -41,6 +41,7 @@ class RocoLoginActivity : ComponentActivity() {
     private val handledCodes = mutableSetOf<String>()
     private var exchangeJob: Job? = null
     private var pendingSession: String? = null
+    private var pendingNight = false
     private var mobile = true
     private var foreground = false
     private var launched = false
@@ -255,6 +256,8 @@ class RocoLoginActivity : ComponentActivity() {
                 if (current != generation || isDestroyed) return@launch
                 if (result.vars != null) {
                     acceptSession(result.vars)
+                } else if (RocoSession.isNightNotice(result.html, result.url)) {
+                    openNightNotice()
                 } else {
                     status.text = "正在读取官方游戏页面，请稍候…"
                     web.loadDataWithBaseURL(result.url, result.html, "text/html", "UTF-8", null)
@@ -277,6 +280,10 @@ class RocoLoginActivity : ComponentActivity() {
             reading = false
             if (launched || isDestroyed || current != generation) return@evaluateJavascript
             val value = runCatching { JSONObject(result) }.getOrNull() ?: return@evaluateJavascript
+            if (value.optBoolean("night")) {
+                openNightNotice()
+                return@evaluateJavascript
+            }
             value.optString("vars").takeIf { it.isNotEmpty() }?.let { raw ->
                 runCatching { RocoSession.parse(raw) }.getOrNull()?.let { acceptSession(it) }
             }
@@ -298,12 +305,25 @@ class RocoLoginActivity : ComponentActivity() {
         openGame(vars)
     }
 
-    private fun openGame(vars: String) {
+    private fun openGame(vars: String) = openPlayer(RocoSession.GAME_SWF, vars)
+
+    private fun openNightNotice() {
+        if (launched || pendingSession != null || isDestroyed) return
+        pendingNight = true
+        if (!foreground) return
+        launched = true
+        pendingNight = false
+        handler.removeCallbacks(poll)
+        Toast.makeText(this, "夜间保护期间无法登录游戏，正在播放官方提示", Toast.LENGTH_SHORT).show()
+        openPlayer(RocoSession.NIGHT_SWF, null)
+    }
+
+    private fun openPlayer(swf: String, vars: String?) {
         startActivity(
             Intent(this, PlayerActivity::class.java).apply {
-                data = Uri.parse(RocoSession.GAME_SWF)
+                data = Uri.parse(swf)
                 putExtra("baseUrl", RocoSession.BASE_URL)
-                putExtra("flashVars", vars)
+                if (vars != null) putExtra("flashVars", vars)
             }
         )
         finish()
@@ -315,6 +335,7 @@ class RocoLoginActivity : ComponentActivity() {
         if (!::web.isInitialized) return
         web.onResume()
         pendingSession?.let { acceptSession(it) }
+        if (pendingNight) openNightNotice()
         handler.removeCallbacks(poll)
         handler.post(poll)
     }
