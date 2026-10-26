@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">洛克王国</string>
+    <string name="toggle_keyboard">显示或隐藏键盘</string>
     <string name="player_menu">播放器菜单</string>
     <string name="close_player_menu">关闭播放器菜单</string>
     <string name="player_settings">播放设置</string>
