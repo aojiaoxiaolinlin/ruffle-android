@@ -4,7 +4,7 @@
 
 ## 中文
 
-`base` 是本仓库的共享 Android 开发分支，基于 [Ruffle](https://ruffle.rs)。它维护通用 SWF 播放器、中文输入与字体回退、HTTP 资源基址、崩溃诊断和设备测试等通用改进。经过本仓库的本地优化和改进，`base` 的运行稳定性和性能得到大幅提升。
+`base` 是本仓库的共享 Android 开发分支，基于 [Ruffle](https://ruffle.rs)。它维护通用 SWF 播放器、中文输入与字体回退、HTTP 资源基址、崩溃诊断和设备测试等通用改进。经过本仓库的本地优化和改进，`base` 的运行稳定性和性能得到大幅提升。`base` 依赖的 Ruffle 核心也经过本仓库优化，来自 [aojiaoxiaolinlin/ruffle](https://github.com/aojiaoxiaolinlin/ruffle)，不是官方 Ruffle 核心。
 
 `base` 不是官方 Ruffle Android，也不通过 F-Droid 分发。请只从本仓库的 Releases 或 GitHub Actions 获取构建。
 
@@ -23,7 +23,7 @@
 - 系统输入法支持中文组合、Unicode 文本、退格和前向删除；键盘覆盖在内容上方，不改变渲染区域大小
 - 从 Android 的 system、product、vendor 和 updated-font 目录加载设备字体；中文可回退到 Noto CJK 或 Droid Sans Fallback，并优先简体中文
 - 在打开 SWF 前可设置 **Custom base URL (optional)**，用于解析 SWF 中的相对资源地址；支持 HTTP，不会自动升级为 HTTPS
-- 共享 Scale9 渲染、AVM2 broadcast event 传播和默认字体 glyph fallback 等 Ruffle 核心修复
+- 本仓库优化的 Ruffle 核心包含 Scale9 渲染、AVM2 broadcast event 传播和默认字体 glyph fallback 等修复
 - 包含 Android 崩溃诊断、OOM 排查和设备测试文档
 
 ### 构建与测试
@@ -56,11 +56,11 @@
 
 ### 与上游 Ruffle 的关系
 
-本分支基于 [Ruffle](https://ruffle.rs) 和 [ruffle-rs/ruffle-android](https://github.com/ruffle-rs/ruffle-android)，但包含本仓库自己的 Android 改动。上游项目、F-Droid 版本和上游 Release 不是本分支的下载渠道。
+本分支的 Android 工程基于 [Ruffle](https://ruffle.rs) 和 [ruffle-rs/ruffle-android](https://github.com/ruffle-rs/ruffle-android)，但包含本仓库自己的 Android 改动；依赖的 Ruffle 核心来自 [aojiaoxiaolinlin/ruffle](https://github.com/aojiaoxiaolinlin/ruffle)，并非官方 Ruffle 核心。上游项目、F-Droid 版本和上游 Release 不是本分支的下载渠道。
 
 ## English
 
-`base` is the shared Android development branch of this repository, built on [Ruffle](https://ruffle.rs). It maintains general improvements such as the SWF player, Chinese input and font fallback, HTTP resource base URLs, crash diagnostics, and device testing. Local optimizations and improvements from this repository have significantly improved its runtime stability and performance.
+`base` is the shared Android development branch of this repository, built on [Ruffle](https://ruffle.rs). It maintains general improvements such as the SWF player, Chinese input and font fallback, HTTP resource base URLs, crash diagnostics, and device testing. Local optimizations and improvements from this repository have significantly improved its runtime stability and performance. The Ruffle core used by `base` is also optimized in this repository at [aojiaoxiaolinlin/ruffle](https://github.com/aojiaoxiaolinlin/ruffle), and is not the official Ruffle core.
 
 This is not the official Ruffle Android app, and it is not distributed through F-Droid. Use only builds from this repository's Releases or GitHub Actions.
 
@@ -79,7 +79,7 @@ Download `base` builds from [this repository's Releases](https://github.com/aoji
 - System input method support for Chinese composition, Unicode text, backspace, and forward delete; the keyboard overlays the content without resizing the render surface
 - Device fonts are loaded from Android's system, product, vendor, and updated-font directories; Chinese can fall back to Noto CJK or Droid Sans Fallback, preferring Simplified Chinese
 - An optional **Custom base URL** resolves relative resources before opening a local SWF or SWF URL; HTTP is supported and is not automatically upgraded to HTTPS
-- Shared Ruffle core fixes for Scale9 rendering, AVM2 broadcast-event propagation, and default-font glyph fallback
+- The optimized Ruffle core maintained in this repository includes fixes for Scale9 rendering, AVM2 broadcast-event propagation, and default-font glyph fallback
 - Android crash diagnostics, OOM investigation, and device-test documentation
 
 ### Build and test
@@ -112,4 +112,4 @@ Releases use tags. The `base` branch name stays unchanged.
 
 ### Upstream Ruffle
 
-This branch is based on [Ruffle](https://ruffle.rs) and [ruffle-rs/ruffle-android](https://github.com/ruffle-rs/ruffle-android), with additional Android changes maintained in this repository. The upstream project, its F-Droid package, and its Releases are not download channels for this branch.
+This branch's Android project is based on [Ruffle](https://ruffle.rs) and [ruffle-rs/ruffle-android](https://github.com/ruffle-rs/ruffle-android), with additional Android changes maintained in this repository. Its Ruffle core comes from the optimized [aojiaoxiaolinlin/ruffle](https://github.com/aojiaoxiaolinlin/ruffle), not the official Ruffle core. The upstream project, its F-Droid package, and its Releases are not download channels for this branch.
