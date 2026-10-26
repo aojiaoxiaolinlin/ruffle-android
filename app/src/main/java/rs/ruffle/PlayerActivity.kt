@@ -299,6 +299,12 @@ class PlayerActivity : GameActivity() {
         layout.findViewById<View>(R.id.button_menu).setOnClickListener {
             setMenuExpanded(!menuExpanded)
         }
+        layout.findViewById<View>(R.id.button_kb).setOnClickListener {
+            val visible = ViewCompat.getRootWindowInsets(layout)
+                ?.isVisible(WindowInsetsCompat.Type.ime()) == true
+            setMenuExpanded(false)
+            setSoftKeyboardVisible(!visible)
+        }
         layout.findViewById<View>(R.id.button_cm).setOnClickListener {
             setMenuExpanded(false)
             requestContextMenu()

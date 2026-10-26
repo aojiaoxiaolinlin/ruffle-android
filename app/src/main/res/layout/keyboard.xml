@@ -54,6 +54,17 @@
                 android:visibility="gone">
 
                 <ImageButton
+                    android:id="@+id/button_kb"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/toggle_keyboard"
+                    android:padding="13dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_keyboard"
+                    android:tint="#FFFFFF" />
+
+                <ImageButton
                     android:id="@+id/button_cm"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
